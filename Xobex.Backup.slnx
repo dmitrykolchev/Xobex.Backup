@@ -1,0 +1,12 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="ColdBackup/ColdBackup.vcxproj" Id="c204f6bd-9ee6-4967-a28e-9d7848c28190" />
+  <Project Path="dd/dd.vcxproj" Id="f2f5a545-9b45-4999-a958-5956ad76903d" />
+  <Project Path="DiskMap/DiskMap.csproj" Id="5d61a8c9-26e7-4150-8334-2a461dfe4f20" />
+  <Project Path="PartBackup/PartBackup.csproj" Id="79f8cfd8-e76a-43fa-98b8-365d9a52f546" />
+  <Project Path="SsdRefresh/SsdRefresh.vcxproj" Id="27795b35-6f9e-407a-bd8a-a88580cc36d0" />
+</Solution>

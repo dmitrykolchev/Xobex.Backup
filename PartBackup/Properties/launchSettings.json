@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "PartBackup": {
+      "commandName": "Project",
+      "commandLineArgs": "backup \\\\.\\E: D:\\test.img"
+    }
+  }
+}
