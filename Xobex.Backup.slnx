@@ -9,4 +9,5 @@
   <Project Path="DiskMap/DiskMap.csproj" Id="5d61a8c9-26e7-4150-8334-2a461dfe4f20" />
   <Project Path="PartBackup/PartBackup.csproj" Id="79f8cfd8-e76a-43fa-98b8-365d9a52f546" />
   <Project Path="SsdRefresh/SsdRefresh.vcxproj" Id="27795b35-6f9e-407a-bd8a-a88580cc36d0" />
+  <Project Path="TermOut/TermOut.csproj" Id="78b63eed-ad46-4d11-af53-efd95b19f924" />
 </Solution>

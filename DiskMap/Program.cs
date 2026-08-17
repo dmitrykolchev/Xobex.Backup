@@ -3,6 +3,7 @@ using System;
 using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Text;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Storage.FileSystem;
@@ -17,6 +18,9 @@ unsafe class Program
     // Win32 константа для получения битовой карты тома
     static void Main(string[] args)
     {
+        Console.OutputEncoding = Encoding.UTF8;
+        Console.Out.WriteLine(" ");
+
         // 1. Активируем поддержку ANSI и TrueColor в терминале Windows
         EnableTrueColorSupport();
 
@@ -27,7 +31,7 @@ unsafe class Program
         }
 
         Console.Title = $"Дефраг-карта диска {driveLetter}:";
-        Console.WriteLine($"\x1b[1mАнализ диска {driveLetter}:... (Требуются права Администратора)\x1b[0m\n");
+        Console.Out.WriteLine($"\x1b[1mАнализ диска {driveLetter}:... (Требуются права Администратора)\x1b[0m\n");
 
         // 2. Получаем геометрию диска (размер кластера)
         string rootPath = $"{driveLetter}:\\";
@@ -35,7 +39,7 @@ unsafe class Program
 
         if (!GetDiskFreeSpace(rootPath, out sectorsPerCluster, out bytesPerSector, out numberOfFreeClusters, out totalNumberOfClusters))
         {
-            Console.WriteLine($"\x1b[31mОшибка получения геометрии диска. Код: {Marshal.GetLastPInvokeError()}\x1b[0m");
+            Console.Error.WriteLine($"\x1b[31mОшибка получения геометрии диска. Код: {Marshal.GetLastPInvokeError()}\x1b[0m");
             return;
         }
 
@@ -55,7 +59,7 @@ unsafe class Program
 
         if (hVolume.IsInvalid)
         {
-            Console.WriteLine($"\x1b[31mОшибка открытия тома. Код: {Marshal.GetLastPInvokeError()}\nУбедитесь, что запустили от Администратора.\x1b[0m");
+            Console.Error.WriteLine($"\x1b[31mОшибка открытия тома. Код: {Marshal.GetLastPInvokeError()}\nУбедитесь, что запустили от Администратора.\x1b[0m");
             return;
         }
 
@@ -74,7 +78,7 @@ unsafe class Program
                 lpOutBuffer: bitBuffer.AsSpan(),
                 lpBytesReturned: out var bytesReturned))
             {
-                Console.WriteLine($"[-] FSCTL_GET_VOLUME_BITMAP failed. Error: {Marshal.GetLastPInvokeError()}");
+                Console.Error.WriteLine($"[-] FSCTL_GET_VOLUME_BITMAP failed. Error: {Marshal.GetLastPInvokeError()}");
                 return;
             }
 
@@ -103,20 +107,23 @@ unsafe class Program
         long totalCells = (long)mapWidth * mapHeight;
 
         // Вычисляем, сколько кластеров входит в один символ на экране (Пул кластеров)
-        double clustersPerCell = (double)bitmap.BitmapSize / totalCells;
+        long clustersPerCell = (bitmap.BitmapSize + totalCells - 1) / totalCells;
         var totalClusters = bitmap.BitmapSize;
-
-        Console.WriteLine($"Размер кластера: {clusterSize / 1024} КБ");
-        Console.WriteLine($"Всего кластеров: {totalClusters:N0}");
-        Console.WriteLine($"Один символ [■] равен пулу из {clustersPerCell:F1} кластеров (~{clustersPerCell * clusterSize / 1024 / 1024:F1} МБ)\n");
-
         // Открываем прямой доступ к потоку вывода терминала с буфером в 128 КБ
         using Stream baseStream = Console.OpenStandardOutput(128 * 1024);
-        using StreamWriter writer = new StreamWriter(baseStream, System.Text.Encoding.UTF8, 128 * 1024);
+        Encoding noBomEncoding = new UTF8Encoding(false);
+        using StreamWriter writer = new StreamWriter(baseStream, noBomEncoding, 128 * 1024);
+
+
+        writer.WriteLine($"Размер кластера: {clusterSize / 1024} КБ");
+        writer.WriteLine($"Всего кластеров: {totalClusters:N0}");
+        writer.WriteLine($"Один символ [■] равен пулу из {clustersPerCell:F1} кластеров (~{clustersPerCell * clusterSize / 1024 / 1024:F1} МБ)\n");
 
         // Отрисовка верхней рамки
-        writer.WriteLine("┌" + new string('─', mapWidth) + "┐");
-
+        writer.Write('┌');
+        for(int i = 0; i < mapWidth;++i) writer.Write('─');
+        writer.WriteLine('┐');
+        long totalAllocated = 0;
         for (int y = 0; y < mapHeight; y++)
         {
             writer.Write("│"); // Левая граница
@@ -132,13 +139,14 @@ unsafe class Program
 
                 long checkedClusters = 0;
                 long usedClusters = 0;
-
+                
                 // Анализируем биты занятости для пула кластеров этой ячейки
                 for (long c = startClusterForCell; c < endClusterForCell; c++)
                 {
                     if (bitmap.IsAllocated((nuint)c))
                     {
                         usedClusters++;
+                        totalAllocated++;
                     }
                     checkedClusters++;
                 }
@@ -184,6 +192,8 @@ unsafe class Program
         // Легенда
         writer.WriteLine("\nЛегенда занятости пула кластеров:");
         writer.WriteLine("\x1b[38;2;35;35;45m■ 0% (Пусто) \x1b[38;2;0;150;100m■ ~30% (Редко) \x1b[38;2;120;120;0m■ ~60% (Средне) \x1b[38;2;255;0;0m■ 100% (Плотная запись)\x1b[0m\n");
+
+        writer.WriteLine($"Занято {totalAllocated:#,##0} кластеров ({totalAllocated * clusterSize / 1024.0 / 1024.0 / 1024.0:#,##0.0} GB)");
         writer.Flush();
     }
 
