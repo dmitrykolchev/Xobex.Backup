@@ -52,29 +52,43 @@ public unsafe class LinuxInputAdapter
         Writer.Flush();
     }
 
-    public bool GetInputEvent(out InputEvent? ev)
+    private Queue<ConsoleEvent> _events = new ();
+
+    public bool GetInputEvent(out ConsoleEvent ev)
     {
+        if(_events.Count > 0 )
+        {
+            ev = _events.Dequeue();
+            return true;
+        }
         ev = default;
         byte* buffer = stackalloc byte[64];
         nint bytesRead = read(STDIN_FILENO, buffer, 64);
         if (bytesRead <= 0)
         {
-            return true;
-        }
-
-        ReadOnlySpan<byte> data = new(buffer, (int)bytesRead);
-        StringBuilder sb = new StringBuilder();
-        foreach (byte b in data)
-        {
-            sb.Append(b < 32 ? $"\\x{b:X2}" : (char)b);
-        }
-
-        Writer.Write($"\'{sb.ToString()}\' ({BitConverter.ToString(data.ToArray())})\r\n");
-        Writer.Flush();
-        if (buffer[0] == (byte)'q')
-        {
             return false;
         }
+        List<ConsoleEvent> evs = AdvancedInputDecoder.ParseBuffer(new ReadOnlySpan<byte>(buffer, (int)bytesRead));
+        foreach (var item in evs)
+        {
+            _events.Enqueue(item);
+        }
+        ev = _events.Dequeue();
+        return true;
+
+        //ReadOnlySpan<byte> data = new(buffer, (int)bytesRead);
+        //StringBuilder sb = new StringBuilder();
+        //foreach (byte b in data)
+        //{
+        //    sb.Append(b < 32 ? $"\\x{b:X2}" : (char)b);
+        //}
+
+        //Writer.Write($"\'{sb.ToString()}\' ({BitConverter.ToString(data.ToArray())})\r\n");
+        //Writer.Flush();
+        //if (buffer[0] == (byte)'q')
+        //{
+        //    return false;
+        //}
         return true;
     }
 
@@ -196,21 +210,12 @@ public unsafe class LinuxInputAdapter
 
     private void EnableRawMode()
     {
-        // 0 is standard input file descriptor (stdin)
         fixed (termios* ptr = &_original)
         {
             if (tcgetattr(STDIN_FILENO, ptr) == 0)
             {
                 termios raw = _original;
                 cfmakeraw(&raw);
-                //raw.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP
-                //                | INLCR | IGNCR | ICRNL | IXON);
-                //raw.c_oflag &= ~OPOST;
-                //raw.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
-                //raw.c_cflag &= ~(CSIZE | PARENB);
-                //raw.c_cflag |= CS8;
-                //raw.c_cc[VMIN] = 1;  // Читать как минимум 1 байт (символ) за раз
-                //raw.c_cc[VTIME] = 0;
                 int err = tcsetattr(STDIN_FILENO, TCSANOW, &raw);
                 if (err != 0)
                 {

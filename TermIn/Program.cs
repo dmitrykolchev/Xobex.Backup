@@ -5,14 +5,28 @@ internal class Program
     static void Main(string[] args)
     {
         LinuxInputAdapter ada = new();
-
-        for(; ; )
+        try
         {
-            if(!ada.GetInputEvent(out var _))
+            PosixInputReader reader = new PosixInputReader();
+            bool done = false;
+            while (!done)
             {
-                break;
+                reader.ReadEvents((e) =>
+                {
+                    ada.Writer.Write($"{e}\r\n");
+                    if (e.EventType == InputEventType.Key)
+                    {
+                        if (e.KeyEvent.Key == ConsoleKey.Q)
+                        {
+                            done = true;
+                        }
+                    }
+                });
             }
         }
-        ada.Reset();
+        finally
+        {
+            ada.Reset();
+        }
     }
 }
