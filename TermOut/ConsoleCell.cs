@@ -2,13 +2,15 @@
 
 public struct ConsoleCell
 {
-    public ConsoleCell(char ch, Color fore, Color back)
+    public ConsoleCell(char ch, Color fore, Color back, TextStyle st = TextStyle.None)
     {
         Ch = ch;
-        Fore = fore;
-        Back = back;
+        Fg = fore;
+        Bg = back;
+        St = st;
     }
     public char Ch;
-    public Color Fore;
-    public Color Back;
+    public TextStyle St;
+    public Color Fg;
+    public Color Bg;
 }

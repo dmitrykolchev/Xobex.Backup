@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "TermOut": {
+      "commandName": "Project"
+    },
+    "WSL": {
+      "commandName": "WSL2",
+      "externalConsole": true,
+      "distributionName": ""
+    }
+  }
+}
