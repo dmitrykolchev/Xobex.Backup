@@ -1,4 +1,6 @@
-﻿namespace Xobex.Console;
+﻿using System.Text;
+
+namespace Xobex.Console;
 
 public enum InputEventType
 {
@@ -55,6 +57,32 @@ public class InputEvent
     public MouseEvent Mouse { get; }
 
     public byte[] RawData => _rawData;
+
+    public override string ToString()
+    {
+        var sb = new StringBuilder();
+        sb.Append(EventType).Append(':');
+        if (EventType == InputEventType.Key)
+        {
+            sb.Append(' ').Append(Key.Key);
+            if (Key.Mod != ConsoleModifiers.None)
+            {
+                sb.Append('+').Append(Key.Mod);
+            }
+            sb.Append(" Ch=").Append(FormattableString.Invariant($"\\u{(ushort)Key.Ch:X4}"));
+        }
+        else if (EventType == InputEventType.Mouse)
+        {
+            sb.Append(' ').Append(Mouse.Button).Append(' ').Append(Mouse.Action);
+            if (Mouse.Mod != ConsoleModifiers.None)
+            {
+                sb.Append('+').Append(Mouse.Mod);
+            }
+            sb.Append(" Pos=(").Append(Mouse.X).Append(',').Append(Mouse.Y).Append(')');
+        }
+        sb.Append(" Raw=[").Append(Convert.ToHexString(_rawData)).Append(']');
+        return sb.ToString();
+    }
 
     internal static InputEvent Create(ConsoleKey key, ConsoleModifiers mod, char ch, ReadOnlySpan<byte> rawData)
     {

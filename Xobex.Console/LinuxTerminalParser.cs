@@ -77,7 +77,17 @@ internal class LinuxTerminalParser
         return new ReadOnlySpan<byte>(_rawData, 0, _rawDataPosition);
     }
 
-    private static readonly Dictionary<char, (ConsoleKey, ConsoleModifiers)> _charToConsoleKey = new()
+    // Maps a character to a key event, unmapped characters produce an event with ConsoleKey.None.
+    private static InputEvent CreateKeyEvent(char ch, ConsoleModifiers additionalModifiers, ReadOnlySpan<byte> rawData)
+    {
+        if (_charToConsoleKey.TryGetValue(ch, out var entry))
+        {
+            return InputEvent.Create(entry.Key, entry.Mod | additionalModifiers, ch, rawData);
+        }
+        return InputEvent.Create(ConsoleKey.None, additionalModifiers, ch, rawData);
+    }
+
+    private static readonly Dictionary<char, (ConsoleKey Key, ConsoleModifiers Mod)> _charToConsoleKey = new()
     {
         ['\u0001'] = (ConsoleKey.A, ConsoleModifiers.Control),
         ['\u0002'] = (ConsoleKey.B, ConsoleModifiers.Control),
@@ -214,8 +224,7 @@ internal class LinuxTerminalParser
                 case InputTokenType.EM:  case InputTokenType.SUB: case InputTokenType.IS4: case InputTokenType.IS3:
                 case InputTokenType.IS2: case InputTokenType.IS1:
                     {
-                        (var key, var mod) = _charToConsoleKey[(char)token.Ch];
-                        ev = InputEvent.Create(key, mod, (char)token.Ch, GetRawData());
+                        ev = CreateKeyEvent((char)token.Ch, ConsoleModifiers.None, GetRawData());
                         break;
                     }
                 case InputTokenType.ESC:
@@ -228,7 +237,7 @@ internal class LinuxTerminalParser
                     ev = InputEvent.Create(ConsoleKey.Backspace, ConsoleModifiers.None, (char)token.Ch, GetRawData());
                     break;
                 case InputTokenType.Char8Bit:
-                    result = ParseUtf8Character(token.Ch, out ev);
+                    result = ParseUtf8Character(token.Ch, ConsoleModifiers.None, out ev);
                     break;
                 default:
                     if (token.TokenType == InputTokenType.UpperCase)
@@ -241,8 +250,7 @@ internal class LinuxTerminalParser
                     }
                     else
                     {
-                        (var key, var mod) = _charToConsoleKey[(char)token.Ch];
-                        ev = InputEvent.Create(key, mod, (char)token.Ch, GetRawData());
+                        ev = CreateKeyEvent((char)token.Ch, ConsoleModifiers.None, GetRawData());
                     }
                     break;
             }
@@ -304,10 +312,14 @@ internal class LinuxTerminalParser
                         {
                             ev = InputEvent.Create(ConsoleKey.A + (token.Ch - 'a'), ConsoleModifiers.Alt, '\u0000', GetRawData());
                         }
+                        else if (token.TokenType == InputTokenType.Char8Bit)
+                        {
+                            // Alt plus a multi byte UTF-8 character
+                            result = ParseUtf8Character(token.Ch, ConsoleModifiers.Alt, out ev);
+                        }
                         else
                         {
-                            (var key, var mod) = _charToConsoleKey[(char)token.Ch];
-                            ev = InputEvent.Create(key, mod | ConsoleModifiers.Alt, (char)token.Ch, GetRawData());
+                            ev = CreateKeyEvent((char)token.Ch, ConsoleModifiers.Alt, GetRawData());
                         }
                         break;
                 }
@@ -636,7 +648,7 @@ internal class LinuxTerminalParser
     }
 
     // Assembles a multi byte UTF-8 character started with the given lead byte.
-    private bool ParseUtf8Character(byte leadByte, out InputEvent? ev)
+    private bool ParseUtf8Character(byte leadByte, ConsoleModifiers modifiers, out InputEvent? ev)
     {
         Span<byte> bytes = stackalloc byte[4];
         var count = GetUtf8SequenceLength(leadByte);
@@ -662,7 +674,7 @@ internal class LinuxTerminalParser
             ev = null;
             return false;
         }
-        ev = InputEvent.Create(ConsoleKey.None, ConsoleModifiers.None, (char)rune.Value, GetRawData());
+        ev = InputEvent.Create(ConsoleKey.None, modifiers, (char)rune.Value, GetRawData());
         return true;
     }
 

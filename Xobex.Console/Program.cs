@@ -30,6 +30,21 @@ internal class Program
                 {
                     conOut.WriteLine($"{ev}");
                     conOut.Flush();
+                    if (ev?.EventType == InputEventType.Key)
+                    {
+                        if(ev.Key.Key == ConsoleKey.C && ev.Key.Mod == ConsoleModifiers.Control)
+                        {
+                            break;
+                        }
+                        else if(ev.Key.Ch == 'M')
+                        {
+                            conOut.EnableMouseInput();
+                        }
+                        else if(ev.Key.Ch == 'm')
+                        {
+                            conOut.DisableMouseInput();
+                        }
+                    }
                 }
             }
 
