@@ -1,6 +1,12 @@
-﻿using System.Runtime.InteropServices;
+// <copyright file="LinuxNative.cs" company="Dmitry Kolchev">
+// Copyright (c) 2026 Dmitry Kolchev. All rights reserved.
+// See LICENSE in the project root for license information
+// </copyright>
+
+using System.Runtime.InteropServices;
 
 namespace Xobex.Console;
+#pragma warning disable CS8981 // The type name only contains lower-cased ascii characters. Such names may become reserved for the language.
 
 internal unsafe class LinuxNative
 {
@@ -65,7 +71,6 @@ internal unsafe class LinuxNative
     public const int VWERASE = 14;
     public const int VLNEXT = 15;
     public const int VEOL2 = 16;
-
 
     public const uint IGNBRK = 0x0000001;  /* Ignore break condition.  */
     public const uint BRKINT = 0x0000002;  /* Signal interrupt on break.  */
@@ -139,3 +144,4 @@ internal unsafe class LinuxNative
     public const uint CIBAUD = 0x100f0000;
 
 }
+#pragma warning restore CS8981 // The type name only contains lower-cased ascii characters. Such names may become reserved for the language.

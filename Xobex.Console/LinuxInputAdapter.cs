@@ -1,4 +1,9 @@
-﻿using System.Runtime.InteropServices;
+// <copyright file="LinuxInputAdapter.cs" company="Dmitry Kolchev">
+// Copyright (c) 2026 Dmitry Kolchev. All rights reserved.
+// See LICENSE in the project root for license information
+// </copyright>
+
+using System.Runtime.InteropServices;
 using static Xobex.Console.LinuxNative;
 
 namespace Xobex.Console;
@@ -6,17 +11,16 @@ namespace Xobex.Console;
 public unsafe class LinuxInputAdapter : IDisposable
 {
     private termios _original;
-    private bool _rawMode = false;
-    private readonly LinuxOutputAdapter _conOut;
+    private bool _rawMode;
 
     public LinuxInputAdapter(LinuxOutputAdapter conOut)
     {
-        _conOut = conOut;
+        Out = conOut;
         EnableRawMode();
-        _conOut.EnableMouseInput();
+        Out.EnableMouseInput();
     }
 
-    public LinuxOutputAdapter Out => _conOut;
+    public LinuxOutputAdapter Out { get; }
 
     public void Dispose()
     {
@@ -25,7 +29,7 @@ public unsafe class LinuxInputAdapter : IDisposable
 
     public void Reset()
     {
-        _conOut.DisableMouseInput();
+        Out.DisableMouseInput();
         // Restore original terminal flags
         if (_rawMode)
         {
@@ -43,9 +47,9 @@ public unsafe class LinuxInputAdapter : IDisposable
         {
             if (tcgetattr(STDIN_FILENO, ptr) == 0)
             {
-                termios raw = _original;
+                var raw = _original;
                 cfmakeraw(&raw);
-                int err = tcsetattr(STDIN_FILENO, TCSANOW, &raw);
+                var err = tcsetattr(STDIN_FILENO, TCSANOW, &raw);
                 if (err != 0)
                 {
                     throw new InvalidOperationException($"tcsetattr error: {err}");
@@ -57,10 +61,10 @@ public unsafe class LinuxInputAdapter : IDisposable
 
     public bool HasInput()
     {
-        for (int retry = 0; retry < 5; ++retry)
+        for (var retry = 0; retry < 5; ++retry)
         {
             pollfd pfd = new() { fd = STDIN_FILENO, events = POLLIN };
-            int ret = poll(&pfd, 1, 0);
+            var ret = poll(&pfd, 1, 0);
             if (ret == 1 && (pfd.revents & POLLIN) != 0)
             {
                 return true;
@@ -87,7 +91,7 @@ public unsafe class LinuxInputAdapter : IDisposable
     {
         fixed (byte* ptr = buffer)
         {
-            nint bytesRead = read(STDIN_FILENO, ptr, buffer.Length);
+            var bytesRead = read(STDIN_FILENO, ptr, buffer.Length);
             return unchecked((int)bytesRead);
         }
     }

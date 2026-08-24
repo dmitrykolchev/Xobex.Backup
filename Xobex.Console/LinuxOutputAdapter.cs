@@ -1,4 +1,9 @@
-﻿using System.Runtime.CompilerServices;
+// <copyright file="LinuxOutputAdapter.cs" company="Dmitry Kolchev">
+// Copyright (c) 2026 Dmitry Kolchev. All rights reserved.
+// See LICENSE in the project root for license information
+// </copyright>
+
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Xobex.Console;
@@ -8,7 +13,7 @@ public class LinuxOutputAdapter
     public LinuxOutputAdapter()
     {
         System.Console.OutputEncoding = Encoding.UTF8;
-        Stream baseStream = System.Console.OpenStandardOutput(128 * 1024);
+        var baseStream = System.Console.OpenStandardOutput(128 * 1024);
         Encoding noBomEncoding = new UTF8Encoding(false);
         Writer = new StreamWriter(baseStream, noBomEncoding, 128 * 1024);
     }

@@ -8,15 +8,6 @@ using System.Text;
 
 namespace Xobex.Console;
 
-public enum ParserState
-{
-    Initial,
-    StartOfEscapeSequence,
-
-    KeyReady,
-    StartOfSS3Sequence
-}
-
 internal class LinuxTerminalParser
 {
     private readonly LinuxInputAdapter _conIn;
