@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Xobex.Console;
+﻿namespace Xobex.Console;
 
 public enum ParserState
 {
@@ -149,7 +145,7 @@ internal class LinuxTerminalParser
     #pragma warning disable format
     public bool TryGetInputEvent(out InputEvent ev)
     {
-        var token = NextToken();
+        InputToken token = NextToken();
         bool result = true;
         switch (token.TokenType)
         {
@@ -200,7 +196,7 @@ internal class LinuxTerminalParser
     private bool ParseEscapeSequence(out InputEvent ev)
     {
         bool result = true;
-        var token = NextToken();
+        InputToken token = NextToken();
         switch(token.TokenType)
         {
             case InputTokenType.Separator:
@@ -262,7 +258,7 @@ internal class LinuxTerminalParser
     private bool ParseOSCSequence(out InputEvent ev)
     {
         bool result = true;
-        var token = NextToken();
+        InputToken token = NextToken();
         if(token.TokenType == InputTokenType.Separator)
         {
             ev = InputEvent.Create(ConsoleKey.Oem6, ConsoleModifiers.Alt, '\u0000', GetRawData());
@@ -278,7 +274,7 @@ internal class LinuxTerminalParser
     private bool ParseCSISequence(out InputEvent ev)
     {
         bool result = true;
-        var token = NextToken();
+        InputToken token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
             ev = InputEvent.Create(ConsoleKey.Oem4, ConsoleModifiers.Alt, '\u0000', GetRawData());
@@ -299,7 +295,7 @@ internal class LinuxTerminalParser
     private bool ParseSS3Sequence(out InputEvent ev)
     {
         bool result = true;
-        var token = NextToken();
+        InputToken token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
             ev = InputEvent.Create(ConsoleKey.O, ConsoleModifiers.Alt | ConsoleModifiers.Shift, '\u0000', GetRawData());
