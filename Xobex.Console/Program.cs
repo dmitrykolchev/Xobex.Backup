@@ -1,11 +1,13 @@
-using System.Diagnostics;
-using System.Globalization;
+// <copyright file="Program.cs" company="Dmitry Kolchev">
+// Copyright (c) 2026 Dmitry Kolchev. All rights reserved.
+// See LICENSE in the project root for license information
+// </copyright>
 
 namespace Xobex.Console;
 
 internal class Program
 {
-    static void Main(string[] args)
+    private static void Main(string[] args)
     {
         if (OperatingSystem.IsWindows())
         {
@@ -24,23 +26,23 @@ internal class Program
 
             var terminalParser = new LinuxTerminalParser(conIn);
 
-            for(; ; )
+            for (; ; )
             {
-                if(terminalParser.TryGetInputEvent(out var ev))
+                if (terminalParser.TryGetInputEvent(out var ev))
                 {
                     conOut.WriteLine($"{ev}");
                     conOut.Flush();
                     if (ev?.EventType == InputEventType.Key)
                     {
-                        if(ev.Key.Key == ConsoleKey.C && ev.Key.Mod == ConsoleModifiers.Control)
+                        if (ev.Key.Key == ConsoleKey.C && ev.Key.Mod == ConsoleModifiers.Control)
                         {
                             break;
                         }
-                        else if(ev.Key.Ch == 'M')
+                        else if (ev.Key.Ch == 'M')
                         {
                             conOut.EnableMouseInput();
                         }
-                        else if(ev.Key.Ch == 'm')
+                        else if (ev.Key.Ch == 'm')
                         {
                             conOut.DisableMouseInput();
                         }

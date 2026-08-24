@@ -215,6 +215,10 @@ internal class LinuxTerminalParser
             var result = true;
             switch (token.TokenType)
             {
+                case InputTokenType.Separator:
+                    // Idle timeout marker, not an input event
+                    ev = null;
+                    return false;
                 case InputTokenType.SOH: case InputTokenType.STX: case InputTokenType.ETX: case InputTokenType.EOT:
                 case InputTokenType.ENQ: case InputTokenType.ACK: case InputTokenType.BEL: case InputTokenType.BS:
                 case InputTokenType.HT:  case InputTokenType.LF:  case InputTokenType.VT:  case InputTokenType.FF:
