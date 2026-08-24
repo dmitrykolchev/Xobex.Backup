@@ -36,15 +36,21 @@ internal class Program
                     {
                         if (ev.Key.Key == ConsoleKey.C && ev.Key.Mod == ConsoleModifiers.Control)
                         {
+                            conOut.WriteLine($"Ctrl-C pressed. Exiting");
+                            conOut.Flush();
                             break;
                         }
                         else if (ev.Key.Ch == 'M')
                         {
                             conOut.EnableMouseInput();
+                            conOut.WriteLine($"Mouse input enabled");
+                            conOut.Flush();
                         }
                         else if (ev.Key.Ch == 'm')
                         {
                             conOut.DisableMouseInput();
+                            conOut.WriteLine($"Mouse input disabled");
+                            conOut.Flush();
                         }
                     }
                 }
