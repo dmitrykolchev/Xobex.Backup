@@ -11,4 +11,5 @@
   <Project Path="SsdRefresh/SsdRefresh.vcxproj" Id="27795b35-6f9e-407a-bd8a-a88580cc36d0" />
   <Project Path="TermIn/TermIn.csproj" Id="3860c01b-0790-4431-a712-f286a7e9fdc5" />
   <Project Path="TermOut/TermOut.csproj" Id="78b63eed-ad46-4d11-af53-efd95b19f924" />
+  <Project Path="Xobex.Console/Xobex.Console.csproj" Id="53dd69a9-550b-47cc-aad6-95e89ed5ec5d" />
 </Solution>

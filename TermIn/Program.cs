@@ -1,32 +1,31 @@
-﻿namespace TermIn;
+﻿using System.Text;
+
+namespace TermIn;
 
 internal class Program
 {
-    static void Main(string[] args)
+    private static void Main(string[] args)
     {
-        LinuxInputAdapter ada = new();
         try
         {
-            PosixInputReader reader = new PosixInputReader();
-            bool done = false;
-            while (!done)
+            using LinuxConsoleAdapter ada = new();
+            for (; ; )
             {
-                reader.ReadEvents((e) =>
+                if (ada.GetEvent(out InputEvent ev))
                 {
-                    ada.Writer.Write($"{e}\r\n");
-                    if (e.EventType == InputEventType.Key)
+                    ada.WriteLine(ev.ToString());
+                    ada.Flush();
+                    if (ev.RawData[0] == (byte)'q')
                     {
-                        if (e.KeyEvent.Key == ConsoleKey.Q)
-                        {
-                            done = true;
-                        }
+                        break;
                     }
-                });
+                }
             }
         }
-        finally
+        catch (Exception ex)
         {
-            ada.Reset();
+            Console.WriteLine(ex.ToString());
         }
     }
+
 }
