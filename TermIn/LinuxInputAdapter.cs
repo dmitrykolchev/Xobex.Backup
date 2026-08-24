@@ -1,4 +1,8 @@
-﻿using System.Text;
+﻿// <copyright file="LinuxInputAdapter.cs" company="Dmitry Kolchev">
+// Copyright (c) 2026 Dmitry Kolchev. All rights reserved.
+// See LICENSE in the project root for license information
+// </copyright>
+
 using static TermIn.LinuxNative;
 
 namespace TermIn;
@@ -6,7 +10,7 @@ namespace TermIn;
 public unsafe class LinuxInputAdapter : IDisposable
 {
     private termios _original;
-    private bool _rawMode = false;
+    private bool _rawMode;
     private readonly LinuxConsoleAdapter _con;
 
     public LinuxInputAdapter(LinuxConsoleAdapter con)
@@ -45,9 +49,9 @@ public unsafe class LinuxInputAdapter : IDisposable
         {
             if (tcgetattr(STDIN_FILENO, ptr) == 0)
             {
-                termios raw = _original;
+                var raw = _original;
                 cfmakeraw(&raw);
-                int err = tcsetattr(STDIN_FILENO, TCSANOW, &raw);
+                var err = tcsetattr(STDIN_FILENO, TCSANOW, &raw);
                 if (err != 0)
                 {
                     throw new InvalidOperationException($"tcsetattr error: {err}");
@@ -60,7 +64,7 @@ public unsafe class LinuxInputAdapter : IDisposable
     public bool HasInput()
     {
         pollfd pfd = new() { fd = STDIN_FILENO, events = POLLIN };
-        int ret = poll(&pfd, 1, 0);
+        var ret = poll(&pfd, 1, 0);
         if (ret == 1 && (pfd.revents & POLLIN) != 0)
         {
             return true;
@@ -76,7 +80,7 @@ public unsafe class LinuxInputAdapter : IDisposable
     {
         fixed (byte* ptr = buffer)
         {
-            nint bytesRead = read(STDIN_FILENO, ptr, buffer.Length);
+            var bytesRead = read(STDIN_FILENO, ptr, buffer.Length);
             return unchecked((int)bytesRead);
         }
     }

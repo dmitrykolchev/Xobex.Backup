@@ -1,4 +1,9 @@
-﻿using System.Text;
+﻿// <copyright file="InputBuffer.cs" company="Dmitry Kolchev">
+// Copyright (c) 2026 Dmitry Kolchev. All rights reserved.
+// See LICENSE in the project root for license information
+// </copyright>
+
+using System.Text;
 
 namespace TermIn;
 
@@ -9,8 +14,8 @@ public class InputBuffer
     private readonly Queue<byte> _inputBuffer = new(1024);
     private readonly Stack<byte> _ungetBuffer = new(1024);
     private int _lastChar = -1;
-    private byte[] _rawBuffer = new byte[256];
-    private int _rawBufferIndex = 0;
+    private readonly byte[] _rawBuffer = new byte[256];
+    private int _rawBufferIndex;
 
     public InputBuffer(LinuxInputAdapter inputAdapter, LinuxConsoleAdapter con)
     {
@@ -23,9 +28,9 @@ public class InputBuffer
         if (_ungetBuffer.Count == 0 && _inputBuffer.Count == 0)
         {
             Span<byte> data = stackalloc byte[64];
-            int read = _inputAdapter.Read(data);
+            var read = _inputAdapter.Read(data);
             StringBuilder builder = new();
-            for (int i = 0; i < read; ++i)
+            for (var i = 0; i < read; ++i)
             {
                 if (data[i] == 0)
                 {
@@ -46,7 +51,7 @@ public class InputBuffer
         {
             _lastChar = _inputBuffer.Dequeue();
         }
-        if(_lastChar >=0)
+        if (_lastChar >= 0)
         {
             _rawBuffer[_rawBufferIndex++] = (byte)_lastChar;
         }

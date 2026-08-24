@@ -1,4 +1,10 @@
-﻿using System.Runtime.CompilerServices;
+﻿// <copyright file="AnsiParser.cs" company="Dmitry Kolchev">
+// Copyright (c) 2026 Dmitry Kolchev. All rights reserved.
+// See LICENSE in the project root for license information
+// </copyright>
+
+using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace TermIn;
 
@@ -8,25 +14,73 @@ public class AnsiParser
 
     private readonly Dictionary<string, KeyCode> _ascKeyMap = new()
     {
-        ["0"] = KeyCode.Key0, ["1"] = KeyCode.Key1, ["2"] = KeyCode.Key2, ["3"] = KeyCode.Key3, ["4"] = KeyCode.Key4,
-        ["5"] = KeyCode.Key5, ["6"] = KeyCode.Key6, ["7"] = KeyCode.Key7, ["8"] = KeyCode.Key8, ["9"] = KeyCode.Key9,
+        ["0"] = KeyCode.Key0,
+        ["1"] = KeyCode.Key1,
+        ["2"] = KeyCode.Key2,
+        ["3"] = KeyCode.Key3,
+        ["4"] = KeyCode.Key4,
+        ["5"] = KeyCode.Key5,
+        ["6"] = KeyCode.Key6,
+        ["7"] = KeyCode.Key7,
+        ["8"] = KeyCode.Key8,
+        ["9"] = KeyCode.Key9,
 
-        ["A"] = KeyCode.KeyA, ["B"] = KeyCode.KeyB, ["C"] = KeyCode.KeyC, ["D"] = KeyCode.KeyD, ["E"] = KeyCode.KeyE,
-        ["F"] = KeyCode.KeyF, ["G"] = KeyCode.KeyG, ["H"] = KeyCode.KeyH, ["I"] = KeyCode.KeyI, ["J"] = KeyCode.KeyJ,
-        ["K"] = KeyCode.KeyK, ["L"] = KeyCode.KeyL, ["M"] = KeyCode.KeyM, ["N"] = KeyCode.KeyN, ["O"] = KeyCode.KeyO,
-        ["P"] = KeyCode.KeyP, ["Q"] = KeyCode.KeyQ, ["R"] = KeyCode.KeyR, ["S"] = KeyCode.KeyS, ["T"] = KeyCode.KeyT,
-        ["U"] = KeyCode.KeyU, ["V"] = KeyCode.KeyV, ["W"] = KeyCode.KeyW, ["X"] = KeyCode.KeyX, ["Y"] = KeyCode.KeyY, 
+        ["A"] = KeyCode.KeyA,
+        ["B"] = KeyCode.KeyB,
+        ["C"] = KeyCode.KeyC,
+        ["D"] = KeyCode.KeyD,
+        ["E"] = KeyCode.KeyE,
+        ["F"] = KeyCode.KeyF,
+        ["G"] = KeyCode.KeyG,
+        ["H"] = KeyCode.KeyH,
+        ["I"] = KeyCode.KeyI,
+        ["J"] = KeyCode.KeyJ,
+        ["K"] = KeyCode.KeyK,
+        ["L"] = KeyCode.KeyL,
+        ["M"] = KeyCode.KeyM,
+        ["N"] = KeyCode.KeyN,
+        ["O"] = KeyCode.KeyO,
+        ["P"] = KeyCode.KeyP,
+        ["Q"] = KeyCode.KeyQ,
+        ["R"] = KeyCode.KeyR,
+        ["S"] = KeyCode.KeyS,
+        ["T"] = KeyCode.KeyT,
+        ["U"] = KeyCode.KeyU,
+        ["V"] = KeyCode.KeyV,
+        ["W"] = KeyCode.KeyW,
+        ["X"] = KeyCode.KeyX,
+        ["Y"] = KeyCode.KeyY,
         ["Z"] = KeyCode.KeyZ,
 
-        ["a"] = KeyCode.KeyA, ["b"] = KeyCode.KeyB, ["c"] = KeyCode.KeyC, ["d"] = KeyCode.KeyD, ["e"] = KeyCode.KeyE,
-        ["f"] = KeyCode.KeyF, ["g"] = KeyCode.KeyG, ["h"] = KeyCode.KeyH, ["i"] = KeyCode.KeyI, ["j"] = KeyCode.KeyJ,
-        ["k"] = KeyCode.KeyK, ["l"] = KeyCode.KeyL, ["m"] = KeyCode.KeyM, ["n"] = KeyCode.KeyN, ["o"] = KeyCode.KeyO,
-        ["p"] = KeyCode.KeyP, ["q"] = KeyCode.KeyQ, ["r"] = KeyCode.KeyR, ["s"] = KeyCode.KeyS, ["t"] = KeyCode.KeyT,
-        ["u"] = KeyCode.KeyU, ["v"] = KeyCode.KeyV, ["w"] = KeyCode.KeyW, ["x"] = KeyCode.KeyX, ["y"] = KeyCode.KeyY,
+        ["a"] = KeyCode.KeyA,
+        ["b"] = KeyCode.KeyB,
+        ["c"] = KeyCode.KeyC,
+        ["d"] = KeyCode.KeyD,
+        ["e"] = KeyCode.KeyE,
+        ["f"] = KeyCode.KeyF,
+        ["g"] = KeyCode.KeyG,
+        ["h"] = KeyCode.KeyH,
+        ["i"] = KeyCode.KeyI,
+        ["j"] = KeyCode.KeyJ,
+        ["k"] = KeyCode.KeyK,
+        ["l"] = KeyCode.KeyL,
+        ["m"] = KeyCode.KeyM,
+        ["n"] = KeyCode.KeyN,
+        ["o"] = KeyCode.KeyO,
+        ["p"] = KeyCode.KeyP,
+        ["q"] = KeyCode.KeyQ,
+        ["r"] = KeyCode.KeyR,
+        ["s"] = KeyCode.KeyS,
+        ["t"] = KeyCode.KeyT,
+        ["u"] = KeyCode.KeyU,
+        ["v"] = KeyCode.KeyV,
+        ["w"] = KeyCode.KeyW,
+        ["x"] = KeyCode.KeyX,
+        ["y"] = KeyCode.KeyY,
         ["z"] = KeyCode.KeyZ,
     };
 
-    private readonly Dictionary<string, KeyCode> _csiKeyMap = new ()
+    private readonly Dictionary<string, KeyCode> _csiKeyMap = new()
     {
         ["15"] = KeyCode.KeyF5,
         ["16"] = KeyCode.KeyF5,
@@ -62,7 +116,7 @@ public class AnsiParser
 
     public ParseResult TryParseEvent(out InputEvent ev)
     {
-        int ch = _inputBuffer.GetChar();
+        var ch = _inputBuffer.GetChar();
         if (ch == (byte)'\x1B')
         {
             return ParseEscapeSequence(out ev);
@@ -73,7 +127,7 @@ public class AnsiParser
 
     private ParseResult ParseEscapeSequence(out InputEvent ev)
     {
-        int ch = _inputBuffer.GetChar();
+        var ch = _inputBuffer.GetChar();
         ParseResult result;
         switch (ch)
         {
@@ -112,28 +166,28 @@ public class AnsiParser
     private ParseResult ParseCSI(out InputEvent ev)
     {
         ev = default;
-        if (!ReadInt(out int keyCode))
+        if (!ReadInt(out var keyCode))
         {
             return ParseResult.Rejected;
         }
-        string key = keyCode.ToString();
-        int ch = _inputBuffer.GetChar();
-        if(ch != '~' && ch != ';')
+        var key = keyCode.ToString(CultureInfo.InvariantCulture);
+        var ch = _inputBuffer.GetChar();
+        if (ch is not '~' and not ';')
         {
             _inputBuffer.Unget();
             return ParseResult.Rejected;
         }
-        if(ch == '~')
+        if (ch == '~')
         {
             ev = InputEvent.CreateKeyEvent(0, _csiKeyMap[key], 0, "CSI", _inputBuffer.GetRawBuffer());
         }
         else
         {
-            if (!ReadInt(out int shiftState))
+            if (!ReadInt(out var shiftState))
             {
                 return ParseResult.Rejected;
             }
-            if(!Read('~'))
+            if (!Read('~'))
             {
                 return ParseResult.Rejected;
             }
@@ -155,9 +209,9 @@ public class AnsiParser
     private ParseResult ParseSS3Key(out InputEvent ev)
     {
         ev = default;
-        int ch = _inputBuffer.GetChar();
+        var ch = _inputBuffer.GetChar();
         KeyCode keyCode;
-        switch(ch)
+        switch (ch)
         {
             case 'P':
                 keyCode = _ss3KeyMap["P"];
@@ -186,7 +240,7 @@ public class AnsiParser
     private ParseResult ParseSgrMouse(out InputEvent ev)
     {
         ev = default;
-        if(!ReadInt(out int state))
+        if (!ReadInt(out var state))
         {
             return ParseResult.Rejected;
         }
@@ -194,20 +248,20 @@ public class AnsiParser
         {
             return ParseResult.Rejected;
         }
-        if(!ReadInt(out int x))
-        {
-            return ParseResult.Rejected;
-        }    
-        if(!Read(';'))
+        if (!ReadInt(out var x))
         {
             return ParseResult.Rejected;
         }
-        if(!ReadInt(out int y))
+        if (!Read(';'))
         {
             return ParseResult.Rejected;
         }
-        int type = _inputBuffer.GetChar();
-        if(type != 'M' && type != 'm')
+        if (!ReadInt(out var y))
+        {
+            return ParseResult.Rejected;
+        }
+        var type = _inputBuffer.GetChar();
+        if (type is not 'M' and not 'm')
         {
             return ParseResult.Rejected;
         }
@@ -223,7 +277,7 @@ public class AnsiParser
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool Read(char ch)
     {
-        int current = _inputBuffer.GetChar();
+        var current = _inputBuffer.GetChar();
         if (ch != current)
         {
             _inputBuffer.Unget();
@@ -235,9 +289,9 @@ public class AnsiParser
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool Read(string text)
     {
-        for (int i = 0; i < text.Length; ++i)
+        for (var i = 0; i < text.Length; ++i)
         {
-            int current = _inputBuffer.GetChar();
+            var current = _inputBuffer.GetChar();
             if (text[i] != current)
             {
                 _inputBuffer.Unget();
@@ -250,14 +304,14 @@ public class AnsiParser
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool ReadInt(out int value)
     {
-        bool result = false;
+        var result = false;
         value = 0;
         for (; ; )
         {
-            int ch = _inputBuffer.GetChar();
-            if (ch >= (byte)'0' && ch <= (byte)'9')
+            var ch = _inputBuffer.GetChar();
+            if (ch is >= ((byte)'0') and <= ((byte)'9'))
             {
-                value = value * 10 + (ch - (byte)'0');
+                value = (value * 10) + (ch - (byte)'0');
                 result = true;
             }
             else

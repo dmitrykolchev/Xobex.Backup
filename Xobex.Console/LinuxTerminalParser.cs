@@ -1,4 +1,12 @@
-﻿namespace Xobex.Console;
+// <copyright file="LinuxTerminalParser.cs" company="Dmitry Kolchev">
+// Copyright (c) 2026 Dmitry Kolchev. All rights reserved.
+// See LICENSE in the project root for license information
+// </copyright>
+
+using System.Buffers;
+using System.Text;
+
+namespace Xobex.Console;
 
 public enum ParserState
 {
@@ -13,10 +21,9 @@ internal class LinuxTerminalParser
 {
     private readonly LinuxInputAdapter _conIn;
     private readonly InputBuffer _buffer;
-    private readonly byte[] _rawData;
-    private int _rawDataPosition = 0;
+    private byte[] _rawData;
+    private int _rawDataPosition;
     private readonly Stack<InputToken> _ungetBuffer = new();
-
 
     public LinuxTerminalParser(LinuxInputAdapter conIn)
     {
@@ -39,6 +46,12 @@ internal class LinuxTerminalParser
         }
         if (token.TokenType != InputTokenType.Separator)
         {
+            if (_rawDataPosition == _rawData.Length)
+            {
+                var rawData = new byte[_rawData.Length * 2];
+                Array.Copy(_rawData, rawData, _rawData.Length);
+                _rawData = rawData;
+            }
             _rawData[_rawDataPosition] = token.Ch;
             _rawDataPosition++;
         }
@@ -63,6 +76,7 @@ internal class LinuxTerminalParser
     {
         return new ReadOnlySpan<byte>(_rawData, 0, _rawDataPosition);
     }
+
     private static readonly Dictionary<char, (ConsoleKey, ConsoleModifiers)> _charToConsoleKey = new()
     {
         ['\u0001'] = (ConsoleKey.A, ConsoleModifiers.Control),
@@ -142,61 +156,109 @@ internal class LinuxTerminalParser
         ['\u007F'] = (ConsoleKey.Backspace, ConsoleModifiers.None),
     };
 
-    #pragma warning disable format
-    public bool TryGetInputEvent(out InputEvent ev)
+    // Final byte of a parameterless CSI sequence (<ESC>[A ...) mapped to a console key.
+    private static readonly Dictionary<char, ConsoleKey> _csiFinalToConsoleKey = new()
     {
-        InputToken token = NextToken();
-        bool result = true;
-        switch (token.TokenType)
+        ['A'] = ConsoleKey.UpArrow,
+        ['B'] = ConsoleKey.DownArrow,
+        ['C'] = ConsoleKey.RightArrow,
+        ['D'] = ConsoleKey.LeftArrow,
+        ['E'] = ConsoleKey.Clear,
+        ['F'] = ConsoleKey.End,
+        ['H'] = ConsoleKey.Home,
+        ['P'] = ConsoleKey.F1,
+        ['Q'] = ConsoleKey.F2,
+        ['S'] = ConsoleKey.F4,
+    };
+
+    // First numeric parameter of a <ESC>[<n>~ sequence mapped to a console key.
+    private static readonly Dictionary<int, ConsoleKey> _csiTildeToConsoleKey = new()
+    {
+        [1] = ConsoleKey.Home,
+        [2] = ConsoleKey.Insert,
+        [3] = ConsoleKey.Delete,
+        [4] = ConsoleKey.End,
+        [5] = ConsoleKey.PageUp,
+        [6] = ConsoleKey.PageDown,
+        [7] = ConsoleKey.Home,
+        [8] = ConsoleKey.End,
+        [11] = ConsoleKey.F1,
+        [12] = ConsoleKey.F2,
+        [13] = ConsoleKey.F3,
+        [14] = ConsoleKey.F4,
+        [15] = ConsoleKey.F5,
+        [17] = ConsoleKey.F6,
+        [18] = ConsoleKey.F7,
+        [19] = ConsoleKey.F8,
+        [20] = ConsoleKey.F9,
+        [21] = ConsoleKey.F10,
+        [23] = ConsoleKey.F11,
+        [24] = ConsoleKey.F12,
+    };
+
+    #pragma warning disable format
+    public bool TryGetInputEvent(out InputEvent? ev)
+    {
+        try
         {
-            case InputTokenType.SOH: case InputTokenType.STX: case InputTokenType.ETX: case InputTokenType.EOT:
-            case InputTokenType.ENQ: case InputTokenType.ACK: case InputTokenType.BEL: case InputTokenType.BS:
-            case InputTokenType.HT:  case InputTokenType.LF:  case InputTokenType.VT:  case InputTokenType.FF:
-            case InputTokenType.CR:  case InputTokenType.SO:  case InputTokenType.SI:  case InputTokenType.DLE:
-            case InputTokenType.DC1: case InputTokenType.DC2: case InputTokenType.DC3: case InputTokenType.DC4:
-            case InputTokenType.NAK: case InputTokenType.SYN: case InputTokenType.ETB: case InputTokenType.CAN:
-            case InputTokenType.EM:  case InputTokenType.SUB: case InputTokenType.IS4: case InputTokenType.IS3:
-            case InputTokenType.IS2: case InputTokenType.IS1:
-                {
-                    (ConsoleKey key, ConsoleModifiers mod) = _charToConsoleKey[(char)token.Ch];
-                    ev = InputEvent.Create(key, mod, (char)token.Ch, GetRawData());
+            var token = NextToken();
+            var result = true;
+            switch (token.TokenType)
+            {
+                case InputTokenType.SOH: case InputTokenType.STX: case InputTokenType.ETX: case InputTokenType.EOT:
+                case InputTokenType.ENQ: case InputTokenType.ACK: case InputTokenType.BEL: case InputTokenType.BS:
+                case InputTokenType.HT:  case InputTokenType.LF:  case InputTokenType.VT:  case InputTokenType.FF:
+                case InputTokenType.CR:  case InputTokenType.SO:  case InputTokenType.SI:  case InputTokenType.DLE:
+                case InputTokenType.DC1: case InputTokenType.DC2: case InputTokenType.DC3: case InputTokenType.DC4:
+                case InputTokenType.NAK: case InputTokenType.SYN: case InputTokenType.ETB: case InputTokenType.CAN:
+                case InputTokenType.EM:  case InputTokenType.SUB: case InputTokenType.IS4: case InputTokenType.IS3:
+                case InputTokenType.IS2: case InputTokenType.IS1:
+                    {
+                        (var key, var mod) = _charToConsoleKey[(char)token.Ch];
+                        ev = InputEvent.Create(key, mod, (char)token.Ch, GetRawData());
+                        break;
+                    }
+                case InputTokenType.ESC:
+                    result = ParseEscapeSequence(out ev);
                     break;
-                }
-            case InputTokenType.ESC:
-                result = ParseEscapeSequence(out ev);
-                break;
-            case InputTokenType.SP:
-                ev = InputEvent.Create(ConsoleKey.Spacebar, ConsoleModifiers.None, (char)token.Ch, GetRawData());
-                break;
-            case InputTokenType.DEL:
-                ev = InputEvent.Create(ConsoleKey.Backspace, ConsoleModifiers.None, (char)token.Ch, GetRawData());
-                break;
-            case InputTokenType.Char8Bit:
-                throw new NotImplementedException();
-            default:
-                if(token.TokenType == InputTokenType.UpperCase)
-                {
-                    ev = InputEvent.Create(ConsoleKey.A + (token.Ch - 'A'), ConsoleModifiers.Shift, (char)token.Ch, GetRawData());
-                }
-                else if(token.TokenType == InputTokenType.LowerCase)
-                {
-                    ev = InputEvent.Create(ConsoleKey.A + (token.Ch - 'a'), ConsoleModifiers.None, (char)token.Ch, GetRawData());
-                }
-                else 
-                {
-                    (ConsoleKey key, ConsoleModifiers mod) = _charToConsoleKey[(char)token.Ch];
-                    ev = InputEvent.Create(key, mod, (char)token.Ch, GetRawData());
-                }
-                break;
+                case InputTokenType.SP:
+                    ev = InputEvent.Create(ConsoleKey.Spacebar, ConsoleModifiers.None, (char)token.Ch, GetRawData());
+                    break;
+                case InputTokenType.DEL:
+                    ev = InputEvent.Create(ConsoleKey.Backspace, ConsoleModifiers.None, (char)token.Ch, GetRawData());
+                    break;
+                case InputTokenType.Char8Bit:
+                    result = ParseUtf8Character(token.Ch, out ev);
+                    break;
+                default:
+                    if (token.TokenType == InputTokenType.UpperCase)
+                    {
+                        ev = InputEvent.Create(ConsoleKey.A + (token.Ch - 'A'), ConsoleModifiers.Shift, (char)token.Ch, GetRawData());
+                    }
+                    else if (token.TokenType == InputTokenType.LowerCase)
+                    {
+                        ev = InputEvent.Create(ConsoleKey.A + (token.Ch - 'a'), ConsoleModifiers.None, (char)token.Ch, GetRawData());
+                    }
+                    else
+                    {
+                        (var key, var mod) = _charToConsoleKey[(char)token.Ch];
+                        ev = InputEvent.Create(key, mod, (char)token.Ch, GetRawData());
+                    }
+                    break;
+            }
+            return result;
         }
-        return result;
+        finally
+        {
+            // reset raw buffer when exit
+            _rawDataPosition = 0;
+        }
     }
 
-
-    private bool ParseEscapeSequence(out InputEvent ev)
+    private bool ParseEscapeSequence(out InputEvent? ev)
     {
-        bool result = true;
-        InputToken token = NextToken();
+        var result = true;
+        var token = NextToken();
         switch(token.TokenType)
         {
             case InputTokenType.Separator:
@@ -211,7 +273,7 @@ internal class LinuxTerminalParser
             case InputTokenType.EM:  case InputTokenType.SUB: case InputTokenType.IS4: case InputTokenType.IS3:
             case InputTokenType.IS2: case InputTokenType.IS1:
                 {
-                    (ConsoleKey key, ConsoleModifiers mod) = _charToConsoleKey[(char)token.Ch];
+                    (var key, var mod) = _charToConsoleKey[(char)token.Ch];
                     ev = InputEvent.Create(key, mod | ConsoleModifiers.Alt, '\u0000', GetRawData());
                     break;
                 }
@@ -244,7 +306,7 @@ internal class LinuxTerminalParser
                         }
                         else
                         {
-                            (ConsoleKey key, ConsoleModifiers mod) = _charToConsoleKey[(char)token.Ch];
+                            (var key, var mod) = _charToConsoleKey[(char)token.Ch];
                             ev = InputEvent.Create(key, mod | ConsoleModifiers.Alt, (char)token.Ch, GetRawData());
                         }
                         break;
@@ -254,48 +316,275 @@ internal class LinuxTerminalParser
         return result;
     }
 
-    // <ESC>]...
-    private bool ParseOSCSequence(out InputEvent ev)
+    // <ESC>]... string sequence terminated by BEL or ST, consumed and ignored
+    private bool ParseOSCSequence(out InputEvent? ev)
     {
-        bool result = true;
-        InputToken token = NextToken();
-        if(token.TokenType == InputTokenType.Separator)
+        var token = NextToken();
+        if (token.TokenType == InputTokenType.Separator)
         {
             ev = InputEvent.Create(ConsoleKey.Oem6, ConsoleModifiers.Alt, '\u0000', GetRawData());
+            return true;
         }
-        else
+        UngetToken(token);
+        SkipStringSequence();
+        ev = null;
+        return false;
+    }
+
+    // Consumes a string sequence terminated by BEL (\u0007) or ST (\u001b\\).
+    private void SkipStringSequence()
+    {
+        for (; ; )
         {
-            throw new NotImplementedException();
+            var token = NextToken();
+            if (token.TokenType is InputTokenType.BEL or InputTokenType.Separator)
+            {
+                return;
+            }
+            if (token.TokenType == InputTokenType.ESC)
+            {
+                var next = NextToken();
+                if ((char)next.Ch == '\\')
+                {
+                    return;
+                }
+            }
         }
-        return result;
     }
 
     // <ESC>[...
-    private bool ParseCSISequence(out InputEvent ev)
+    private bool ParseCSISequence(out InputEvent? ev)
     {
-        bool result = true;
-        InputToken token = NextToken();
+        var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
             ev = InputEvent.Create(ConsoleKey.Oem4, ConsoleModifiers.Alt, '\u0000', GetRawData());
+            return true;
+        }
+        if ((char)token.Ch == '<')
+        {
+            return ParseSGRMouseSequence(out ev);
+        }
+        UngetToken(token);
+        var result = ReadParameters(out var parameters, out var final);
+        if (!result || (final.TokenType == InputTokenType.Separator))
+        {
+            // Sequence interrupted by a separator token, cannot be completed
+            ev = null;
+            return false;
+        }
+        var finalChar = (char)final.Ch;
+        if (parameters.Count == 0 && finalChar == 'M')
+        {
+            return ParseX10MouseSequence(out ev);
+        }
+        ConsoleKey key;
+        var modifiers = ConsoleModifiers.None;
+        if (finalChar == 'Z')
+        {
+            // <ESC>[Z is back tab
+            key = ConsoleKey.Tab;
+            modifiers = ConsoleModifiers.Shift;
+        }
+        else if (finalChar == '~' && parameters.Count > 0)
+        {
+            if (!_csiTildeToConsoleKey.TryGetValue(parameters[0], out key))
+            {
+                ev = null;
+                return false;
+            }
+            modifiers = parameters.Count > 1 ? GetModifiers(parameters[1]) : ConsoleModifiers.None;
+        }
+        else if (_csiFinalToConsoleKey.TryGetValue(finalChar, out key))
+        {
+            modifiers = parameters.Count > 1 ? GetModifiers(parameters[1]) : ConsoleModifiers.None;
         }
         else
         {
-            throw new NotImplementedException();
+            // Cursor position report (<ESC>[<n>;<m>R) and unknown sequences are consumed silently
+            ev = null;
+            return false;
         }
-        return result;
+        ev = InputEvent.Create(key, modifiers, '\u0000', GetRawData());
+        return true;
     }
 
-    private bool ParseDCSSequence(out InputEvent ev)
+    // Reads numeric CSI parameters separated by ';' up to the terminating token.
+    // Returns false if the sequence was interrupted by a separator token.
+    private bool ReadParameters(out List<int> parameters, out InputToken final)
     {
-        throw new NotImplementedException();
+        parameters = [];
+        var current = -1;
+        for (; ; )
+        {
+            var token = NextToken();
+            switch (token.TokenType)
+            {
+                case InputTokenType.Digit:
+                    current = (Math.Max(current, 0) * 10) + (token.Ch - '0');
+                    break;
+                case InputTokenType.Symbol when (char)token.Ch == ';':
+                    parameters.Add(current);
+                    current = -1;
+                    break;
+                default:
+                    if (current >= 0 || parameters.Count > 0)
+                    {
+                        parameters.Add(current);
+                    }
+                    final = token;
+                    return token.TokenType != InputTokenType.Separator;
+            }
+        }
+    }
+
+    // Decodes an xterm modifier parameter, shift=1, alt=2, ctrl=4 encoded as parameter - 1.
+    private static ConsoleModifiers GetModifiers(int parameter)
+    {
+        var value = Math.Max(parameter, 1) - 1;
+        var modifiers = ConsoleModifiers.None;
+        if ((value & 0x01) != 0)
+        {
+            modifiers |= ConsoleModifiers.Shift;
+        }
+        if ((value & 0x02) != 0)
+        {
+            modifiers |= ConsoleModifiers.Alt;
+        }
+        if ((value & 0x04) != 0)
+        {
+            modifiers |= ConsoleModifiers.Control;
+        }
+        return modifiers;
+    }
+
+    // Parses SGR mouse encoding <ESC>[<{code};{column};{row}(M|m).
+    private bool ParseSGRMouseSequence(out InputEvent? ev)
+    {
+        var result = ReadParameters(out var parameters, out var final);
+        if (!result || parameters.Count < 3)
+        {
+            ev = null;
+            return false;
+        }
+        var released = (char)final.Ch == 'm';
+        if (!released && (char)final.Ch != 'M')
+        {
+            ev = null;
+            return false;
+        }
+        var column = Math.Max(parameters[1], 1);
+        var row = Math.Max(parameters[2], 1);
+        if (!TryCreateMouseEvent(parameters[0], column, row, released, out var mouse))
+        {
+            ev = null;
+            return false;
+        }
+        ev = InputEvent.Create(mouse, GetRawData());
+        return true;
+    }
+
+    // Parses legacy X10 mouse encoding <ESC>[M{code}{column}{row}.
+    private bool ParseX10MouseSequence(out InputEvent? ev)
+    {
+        var codeToken = NextToken();
+        var columnToken = NextToken();
+        var rowToken = NextToken();
+        if (codeToken.TokenType == InputTokenType.Separator || columnToken.TokenType == InputTokenType.Separator || rowToken.TokenType == InputTokenType.Separator ||
+            codeToken.Ch < 0x20 || columnToken.Ch < 0x20 || rowToken.Ch < 0x20)
+        {
+            ev = null;
+            return false;
+        }
+        var code = codeToken.Ch - 0x20;
+        var released = (code & 0x03) == 0x03;
+        if (!TryCreateMouseEvent(code, columnToken.Ch - 0x20, rowToken.Ch - 0x20, released, out var mouse))
+        {
+            ev = null;
+            return false;
+        }
+        ev = InputEvent.Create(mouse, GetRawData());
+        return true;
+    }
+
+    // Decodes an xterm mouse button code into a mouse event. Column and row are one based.
+    private static bool TryCreateMouseEvent(int code, int column, int row, bool released, out InputEvent.MouseEvent mouse)
+    {
+        mouse = default;
+        if ((uint)code > 0x7F)
+        {
+            return false;
+        }
+        var modifiers = ConsoleModifiers.None;
+        if ((code & 0x04) != 0)
+        {
+            modifiers |= ConsoleModifiers.Shift;
+        }
+        if ((code & 0x08) != 0)
+        {
+            modifiers |= ConsoleModifiers.Alt;
+        }
+        if ((code & 0x10) != 0)
+        {
+            modifiers |= ConsoleModifiers.Control;
+        }
+        var buttonIndex = code & 0x03;
+        var button = buttonIndex switch
+        {
+            0 => MouseButton.Left,
+            1 => MouseButton.Middle,
+            2 => MouseButton.Right,
+            _ => MouseButton.None,
+        };
+        MouseAction action;
+        if ((code & 0x40) != 0)
+        {
+            button = (MouseButton)((int)MouseButton.WheelUp + buttonIndex);
+            action = MouseAction.Down;
+        }
+        else if (released)
+        {
+            action = MouseAction.Up;
+        }
+        else if ((code & 0x20) != 0 || button == MouseButton.None)
+        {
+            action = MouseAction.Move;
+        }
+        else
+        {
+            action = MouseAction.Down;
+        }
+        mouse = new InputEvent.MouseEvent
+        {
+            Button = button,
+            Action = action,
+            Mod = modifiers,
+            X = column - 1,
+            Y = row - 1,
+        };
+        return true;
+    }
+
+    // <ESC>P... string sequence terminated by ST, consumed and ignored
+    private bool ParseDCSSequence(out InputEvent? ev)
+    {
+        var token = NextToken();
+        if (token.TokenType == InputTokenType.Separator)
+        {
+            ev = InputEvent.Create(ConsoleKey.P, ConsoleModifiers.Alt, '\u0000', GetRawData());
+            return true;
+        }
+        UngetToken(token);
+        SkipStringSequence();
+        ev = null;
+        return false;
     }
 
     // <ESC>O
-    private bool ParseSS3Sequence(out InputEvent ev)
+    private bool ParseSS3Sequence(out InputEvent? ev)
     {
-        bool result = true;
-        InputToken token = NextToken();
+        var result = true;
+        var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
             ev = InputEvent.Create(ConsoleKey.O, ConsoleModifiers.Alt | ConsoleModifiers.Shift, '\u0000', GetRawData());
@@ -335,7 +624,7 @@ internal class LinuxTerminalParser
                     ev = InputEvent.Create(ConsoleKey.F3, ConsoleModifiers.None, '\u0000', GetRawData());
                     break;
                 case 'S':
-                    ev = InputEvent.Create(ConsoleKey.F3, ConsoleModifiers.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(ConsoleKey.F4, ConsoleModifiers.None, '\u0000', GetRawData());
                     break;
                 default:
                     UngetToken(token);
@@ -344,6 +633,49 @@ internal class LinuxTerminalParser
             }
         }
         return result;
+    }
+
+    // Assembles a multi byte UTF-8 character started with the given lead byte.
+    private bool ParseUtf8Character(byte leadByte, out InputEvent? ev)
+    {
+        Span<byte> bytes = stackalloc byte[4];
+        var count = GetUtf8SequenceLength(leadByte);
+        if (count == 0)
+        {
+            // Unexpected continuation byte or invalid lead byte
+            ev = null;
+            return false;
+        }
+        bytes[0] = leadByte;
+        for (var i = 1; i < count; ++i)
+        {
+            var token = NextToken();
+            if (token.TokenType != InputTokenType.Char8Bit || (token.Ch & 0xC0) != 0x80)
+            {
+                ev = null;
+                return false;
+            }
+            bytes[i] = token.Ch;
+        }
+        if (Rune.DecodeFromUtf8(bytes[..count], out var rune, out var consumed) != OperationStatus.Done || consumed != count)
+        {
+            ev = null;
+            return false;
+        }
+        ev = InputEvent.Create(ConsoleKey.None, ConsoleModifiers.None, (char)rune.Value, GetRawData());
+        return true;
+    }
+
+    // Returns the number of bytes in a UTF-8 sequence started with the given lead byte, 0 if the lead byte is invalid.
+    private static int GetUtf8SequenceLength(byte leadByte)
+    {
+        return leadByte switch
+        {
+            >= 0xC2 and <= 0xDF => 2,
+            >= 0xE0 and <= 0xEF => 3,
+            >= 0xF0 and <= 0xF4 => 4,
+            _ => 0,
+        };
     }
 
 #pragma warning restore format
