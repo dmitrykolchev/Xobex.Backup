@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>TVision</RootNamespace>
+    <AssemblyName>TVision</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+    <NoWarn>CS0660;CS0661;CS0114;CS0108;CS0109;CS0169;CS0414;CA1823;CA1305;CA1830;CA1834</NoWarn>
+  </PropertyGroup>
+
+</Project>

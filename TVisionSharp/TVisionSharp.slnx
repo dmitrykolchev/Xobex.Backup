@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="TVisionSharp.Example/TVisionSharp.Example.csproj" />
+  <Project Path="TVisionSharp.TVEdit/TVisionSharp.TVEdit.csproj" />
+  <Project Path="TVisionSharp/TVisionSharp.csproj" />
+</Solution>
