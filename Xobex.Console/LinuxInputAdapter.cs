@@ -65,54 +65,44 @@ public unsafe class LinuxInputAdapter : IDisposable
 
     public bool HasInput()
     {
-        for (var retry = 0; retry < 5; ++retry)
+        int ret;
+        do
         {
             pollfd pfd = new() { fd = STDIN_FILENO, events = POLLIN };
-            var ret = poll(&pfd, 1, 0);
+            ret = poll(&pfd, 1, 0);
             if (ret == 1 && (pfd.revents & POLLIN) != 0)
             {
                 return true;
             }
-
-            if (ret < 0)
-            {
-                var errno = Marshal.GetLastPInvokeError();
-                if (errno == EINTR)
-                {
-                    continue;
-                }
-                else
-                {
-                    throw new InvalidOperationException($"poll failed {errno} - {Marshal.GetLastPInvokeErrorMessage()}");
-                }
-            }
-            break;
+        } while (ret == -1 && Marshal.GetLastPInvokeError() == EINTR);
+        if (ret == -1)
+        {
+            throw new IOException($"poll() failed: {Marshal.GetLastPInvokeErrorMessage()}");
         }
         return false;
     }
 
     public int Read(Span<byte> buffer)
     {
-        for (var retry = 0; retry < 5; ++retry)
+        if (buffer.Length == 0)
         {
-            fixed (byte* ptr = buffer)
-            {
-                var bytesRead = read(STDIN_FILENO, ptr, buffer.Length);
-                if (bytesRead < 0)
-                {
-                    var errno = Marshal.GetLastPInvokeError();
-                    if (errno == EINTR)
-                    {
-                        continue;
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException($"read failed {errno} - {Marshal.GetLastPInvokeErrorMessage()}");
-                    }
-                }
-                return unchecked((int)bytesRead);
-            }
+            return 0;
         }
-        return 0;
+
+        fixed (byte* ptr = buffer)
+        {
+            nint bytesRead;
+            do
+            {
+                bytesRead = read(STDIN_FILENO, ptr, buffer.Length);
+            }
+            while (bytesRead == -1 && Marshal.GetLastPInvokeError() == EINTR);
+
+            if (bytesRead == -1)
+            {
+                throw new IOException($"read() failed: {Marshal.GetLastPInvokeErrorMessage()}");
+            }
+            return (int)bytesRead;
+        }
     }
 }
