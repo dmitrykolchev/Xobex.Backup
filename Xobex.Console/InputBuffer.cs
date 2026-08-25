@@ -38,7 +38,7 @@ internal class InputBuffer
             if (!_conIn.HasInput())
             {
                 var ts = Stopwatch.GetElapsedTime(_lastReadTime);
-                if (ts.TotalMilliseconds > 20 && !_separatorWritten)
+                if (ts.TotalMilliseconds > 25 && !_separatorWritten)
                 {
                     _queue.Enqueue(new InputToken(InputTokenType.Separator, 0));
                     _separatorWritten = true;
