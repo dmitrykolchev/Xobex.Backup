@@ -35,9 +35,19 @@ public unsafe class LinuxInputAdapter : IDisposable
         {
             fixed (termios* ptr = &_original)
             {
-                _ = tcsetattr(STDIN_FILENO, TCSANOW, ptr);
+                // ignore error when Dispose()
+                tcsetattr(STDIN_FILENO, TCSANOW, ptr);
             }
             _rawMode = false;
+        }
+    }
+
+    private static void ThrowIfError(int result)
+    {
+        if (result < 0)
+        {
+            var errno = Marshal.GetLastPInvokeError();
+            throw new InvalidOperationException($"read failed {errno} - {Marshal.GetLastPInvokeErrorMessage()}");
         }
     }
 
@@ -45,17 +55,11 @@ public unsafe class LinuxInputAdapter : IDisposable
     {
         fixed (termios* ptr = &_original)
         {
-            if (tcgetattr(STDIN_FILENO, ptr) == 0)
-            {
-                var raw = _original;
-                cfmakeraw(&raw);
-                var err = tcsetattr(STDIN_FILENO, TCSANOW, &raw);
-                if (err != 0)
-                {
-                    throw new InvalidOperationException($"tcsetattr error: {err}");
-                }
-                _rawMode = true;
-            }
+            ThrowIfError(tcgetattr(STDIN_FILENO, ptr));
+            var raw = _original;
+            cfmakeraw(&raw);
+            ThrowIfError(tcsetattr(STDIN_FILENO, TCSANOW, &raw));
+            _rawMode = true;
         }
     }
 
