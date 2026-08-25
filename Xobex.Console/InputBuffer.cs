@@ -1,4 +1,9 @@
-﻿using System.Diagnostics;
+// <copyright file="InputBuffer.cs" company="Dmitry Kolchev">
+// Copyright (c) 2026 Dmitry Kolchev. All rights reserved.
+// See LICENSE in the project root for license information
+// </copyright>
+
+using System.Diagnostics;
 
 namespace Xobex.Console;
 
@@ -26,7 +31,7 @@ internal class InputBuffer
 
     private void ReadRawInput()
     {
-        SpinWait spinWait = new();
+        var spinWait = new SpinWait();
         Span<byte> data = stackalloc byte[256];
         for (; ; )
         {
@@ -46,9 +51,9 @@ internal class InputBuffer
                 var readCount = _conIn.Read(data);
                 _separatorWritten = false;
                 _lastReadTime = Stopwatch.GetTimestamp();
-                for (int i = 0; i < readCount; ++i)
+                for (var i = 0; i < readCount; ++i)
                 {
-                    InputTokenType text = data[i] switch
+                    var text = data[i] switch
                     {
                         0x01 => InputTokenType.SOH,
                         0x02 => InputTokenType.STX,

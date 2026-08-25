@@ -73,7 +73,7 @@ public unsafe class LinuxInputAdapter : IDisposable
             if (ret < 0)
             {
                 var errno = Marshal.GetLastPInvokeError();
-                if (errno == 4) //EINTR
+                if (errno == EINTR)
                 {
                     continue;
                 }
@@ -89,10 +89,26 @@ public unsafe class LinuxInputAdapter : IDisposable
 
     public int Read(Span<byte> buffer)
     {
-        fixed (byte* ptr = buffer)
+        for (var retry = 0; retry < 5; ++retry)
         {
-            var bytesRead = read(STDIN_FILENO, ptr, buffer.Length);
-            return unchecked((int)bytesRead);
+            fixed (byte* ptr = buffer)
+            {
+                var bytesRead = read(STDIN_FILENO, ptr, buffer.Length);
+                if (bytesRead < 0)
+                {
+                    var errno = Marshal.GetLastPInvokeError();
+                    if (errno == EINTR)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"read failed {errno} - {Marshal.GetLastPInvokeErrorMessage()}");
+                    }
+                }
+                return unchecked((int)bytesRead);
+            }
         }
+        return 0;
     }
 }

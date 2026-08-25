@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 namespace Xobex.Console;
 #pragma warning disable CS8981 // The type name only contains lower-cased ascii characters. Such names may become reserved for the language.
 
-internal unsafe class LinuxNative
+internal static unsafe partial class LinuxNative
 {
     public const int STDIN_FILENO = 0;
     public const int TCSANOW = 0;
@@ -29,15 +29,6 @@ internal unsafe class LinuxNative
         public uint c_ospeed;
     }
 
-    [DllImport("libc", SetLastError = true)]
-    public static extern void cfmakeraw(termios* termios_p);
-
-    [DllImport("libc", SetLastError = true)]
-    public static extern int tcgetattr(int fd, termios* termios_p);
-
-    [DllImport("libc", SetLastError = true)]
-    public static extern int tcsetattr(int fd, int optional_action, termios* termios_p);
-
     public const short POLLIN = 0x0001;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -48,11 +39,22 @@ internal unsafe class LinuxNative
         public short revents;
     }
 
-    [DllImport("libc", SetLastError = true)]
-    public static extern int poll(pollfd* fds, ulong nfds, int timeout);
+    [LibraryImport("libc", SetLastError = true)]
+    internal static partial int poll(pollfd* fds, uint nfds, int timeout);
 
-    [DllImport("libc", SetLastError = true)]
-    public static extern nint read(int fd, byte* buf, nint count);
+    [LibraryImport("libc", SetLastError = true)]
+    internal static partial nint read(int fd, byte* buf, nint count);
+
+    [LibraryImport("libc", SetLastError = true)]
+    internal static partial void cfmakeraw(termios* termp);
+
+    [LibraryImport("libc", SetLastError = true)]
+    internal static partial int tcgetattr(int fd, termios* termp);
+
+    [LibraryImport("libc", SetLastError = true)]
+    internal static partial int tcsetattr(int fd, int action, termios* termp);
+
+    public const int EINTR = 4;
 
     public const int VINTR = 0;
     public const int VQUIT = 1;
