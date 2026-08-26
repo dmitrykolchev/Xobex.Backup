@@ -13,11 +13,25 @@ public unsafe class LinuxInputAdapter : IDisposable
     private termios _original;
     private bool _rawMode;
 
-    public LinuxInputAdapter(LinuxOutputAdapter conOut)
+    private LinuxInputAdapter(LinuxOutputAdapter conOut)
     {
         Out = conOut;
-        EnableRawMode();
-        Out.EnableMouseInput();
+    }
+
+    public static LinuxInputAdapter Create(LinuxOutputAdapter conOut)
+    {
+        var conIn = new LinuxInputAdapter(conOut);
+        conIn.EnableRawMode();
+        try
+        {
+            conOut.EnableMouseInput();
+            return conIn;
+        }
+        catch
+        {
+            conIn.RestoreCanonicalMode();
+            throw;
+        }
     }
 
     public LinuxOutputAdapter Out { get; }
@@ -25,60 +39,38 @@ public unsafe class LinuxInputAdapter : IDisposable
     public void Dispose()
     {
         Reset();
-    }
-
-    public void Reset()
-    {
-        Out.DisableMouseInput();
-        // Restore original terminal flags
-        if (_rawMode)
-        {
-            fixed (termios* ptr = &_original)
-            {
-                // ignore error when Dispose()
-                tcsetattr(STDIN_FILENO, TCSANOW, ptr);
-            }
-            _rawMode = false;
-        }
-    }
-
-    private static void ThrowIfError(int result)
-    {
-        if (result < 0)
-        {
-            var errno = Marshal.GetLastPInvokeError();
-            throw new InvalidOperationException($"read failed {errno} - {Marshal.GetLastPInvokeErrorMessage()}");
-        }
-    }
-
-    private void EnableRawMode()
-    {
-        fixed (termios* ptr = &_original)
-        {
-            ThrowIfError(tcgetattr(STDIN_FILENO, ptr));
-            var raw = _original;
-            cfmakeraw(&raw);
-            ThrowIfError(tcsetattr(STDIN_FILENO, TCSANOW, &raw));
-            _rawMode = true;
-        }
+        GC.SuppressFinalize(this);
     }
 
     public bool HasInput()
+    {
+        return HasInput(0);
+    }
+
+    public bool HasInput(int timeoutMs)
     {
         int ret;
         do
         {
             pollfd pfd = new() { fd = STDIN_FILENO, events = POLLIN };
-            ret = poll(&pfd, 1, 0);
-            if (ret == 1 && (pfd.revents & POLLIN) != 0)
+            ret = poll(&pfd, 1, timeoutMs);
+            if (ret > 0)
             {
-                return true;
+                if ((pfd.revents & (POLLHUP | POLLERR | POLLNVAL)) != 0)
+                {
+                    // Peer closed / descriptor error: surface this as "input
+                    // available" so the caller proceeds to Read(), which is
+                    // the call that can actually report EOF or the error,
+                    // rather than looping on HasInput() forever.
+                    return true;
+                }
+                if ((pfd.revents & POLLIN) != 0)
+                {
+                    return true;
+                }
             }
         } while (ret == -1 && Marshal.GetLastPInvokeError() == EINTR);
-        if (ret == -1)
-        {
-            throw new IOException($"poll() failed: {Marshal.GetLastPInvokeErrorMessage()}");
-        }
+        ThrowIfError(ret, nameof(poll));
         return false;
     }
 
@@ -95,14 +87,56 @@ public unsafe class LinuxInputAdapter : IDisposable
             do
             {
                 bytesRead = read(STDIN_FILENO, ptr, buffer.Length);
-            }
-            while (bytesRead == -1 && Marshal.GetLastPInvokeError() == EINTR);
+            } while (bytesRead == -1 && Marshal.GetLastPInvokeError() == EINTR);
 
-            if (bytesRead == -1)
-            {
-                throw new IOException($"read() failed: {Marshal.GetLastPInvokeErrorMessage()}");
-            }
+            ThrowIfError((int)bytesRead, nameof(read));
+
             return (int)bytesRead;
+        }
+    }
+
+    public void Reset()
+    {
+        try
+        {
+            Out.DisableMouseInput();
+        }
+        finally
+        {
+            RestoreCanonicalMode();
+        }
+    }
+
+    private void RestoreCanonicalMode()
+    {
+        if (_rawMode)
+        {
+            fixed (termios* ptr = &_original)
+            {
+                ThrowIfError(tcsetattr(STDIN_FILENO, TCSAFLUSH, ptr), nameof(tcsetattr));
+            }
+            _rawMode = false;
+        }
+    }
+
+    private void EnableRawMode()
+    {
+        fixed (termios* ptr = &_original)
+        {
+            ThrowIfError(tcgetattr(STDIN_FILENO, ptr), nameof(tcgetattr));
+            var raw = _original;
+            cfmakeraw(&raw);
+            ThrowIfError(tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw), nameof(tcsetattr));
+            _rawMode = true;
+        }
+    }
+
+    private static void ThrowIfError(int result, string name)
+    {
+        if (result < 0)
+        {
+            var errno = Marshal.GetLastPInvokeError();
+            throw new InvalidOperationException($"{name} failed {errno} - {Marshal.GetLastPInvokeErrorMessage()}");
         }
     }
 }

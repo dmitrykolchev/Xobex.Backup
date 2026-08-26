@@ -10,15 +10,21 @@ namespace Xobex.Console;
 
 public class LinuxOutputAdapter
 {
-    public LinuxOutputAdapter()
+    public LinuxOutputAdapter(TextWriter writer)
     {
-        System.Console.OutputEncoding = Encoding.UTF8;
-        var baseStream = System.Console.OpenStandardOutput(128 * 1024);
-        Encoding noBomEncoding = new UTF8Encoding(false);
-        Writer = new StreamWriter(baseStream, noBomEncoding, 128 * 1024);
+        Writer = writer;
     }
 
-    private StreamWriter Writer
+    public static LinuxOutputAdapter Create(int bufferSize = 128 * 1024)
+    {
+        System.Console.OutputEncoding = Encoding.UTF8;
+        var baseStream = System.Console.OpenStandardOutput(bufferSize);
+        Encoding noBomEncoding = new UTF8Encoding(false);
+        var writer = new StreamWriter(baseStream, noBomEncoding, bufferSize);
+        return new LinuxOutputAdapter(writer);
+    }
+
+    private TextWriter Writer
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get;

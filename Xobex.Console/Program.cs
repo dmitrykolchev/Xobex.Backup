@@ -20,8 +20,8 @@ internal class Program
         else
         {
 
-            var conOut = new LinuxOutputAdapter();
-            using var conIn = new LinuxInputAdapter(conOut);
+            var conOut = LinuxOutputAdapter.Create();
+            using var conIn = LinuxInputAdapter.Create(conOut);
             var buffer = new InputBuffer(conIn);
 
             var terminalParser = new LinuxTerminalParser(conIn);

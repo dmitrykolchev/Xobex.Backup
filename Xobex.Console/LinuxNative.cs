@@ -30,6 +30,11 @@ internal static unsafe partial class LinuxNative
     }
 
     public const short POLLIN = 0x0001;
+    public const short POLLPRI = 0x0002;
+    public const short POLLOUT = 0x0004;
+    public const short POLLERR = 0x0008;
+    public const short POLLHUP = 0x0010;
+    public const short POLLNVAL = 0x0020;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct pollfd
