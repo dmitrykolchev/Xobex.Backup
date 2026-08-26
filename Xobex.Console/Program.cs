@@ -20,7 +20,7 @@ internal class Program
             using var mouse = conIn.EnableMouseInput();
             ProcessConsoleEvents(conIn, conOut);
         }
-        else if (OperatingSystem.IsLinux())
+        else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
         {
             var conOut = LinuxOutputAdapter.Create();
             using ITerminalInputAdapter conIn = LinuxInputAdapter.Create(conOut);
