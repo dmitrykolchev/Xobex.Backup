@@ -31,7 +31,12 @@ namespace TVision
 
         protected override int Compare(object key1, object key2)
         {
-            return string.Compare(key1?.ToString(), key2?.ToString(), StringComparison.OrdinalIgnoreCase);
+            string a = key1 is TSearchRec s1 ? s1.Name : key1?.ToString() ?? "";
+            string b = key2 is TSearchRec s2 ? s2.Name : key2?.ToString() ?? "";
+            bool dirA = key1 is TSearchRec r1 && (r1.Attr & 0x10) != 0;
+            bool dirB = key2 is TSearchRec r2 && (r2.Attr & 0x10) != 0;
+            if (dirA != dirB) return dirA ? -1 : 1;
+            return string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -230,27 +235,29 @@ namespace TVision
 
         public TFileDialog(string aWildCard, string aTitle, string inputName,
             ushort aOptions, byte histId)
-            : base(new TRect(15, 1, 64, 20), aTitle)
+            : base(ComputeBounds(), aTitle)
         {
             Options |= Commands.OfCentered;
             Flags |= Commands.WfGrow;
             WildCard = string.IsNullOrEmpty(aWildCard) ? "*.*" : aWildCard;
 
-            FileName = new TFileInputLine(new TRect(3, 3, 31, 4), 80);
+            int w = Size.X;
+
+            FileName = new TFileInputLine(new TRect(3, 3, (short)(w - 18), 4), 80);
             FileName.Data = WildCard;
             Insert(FileName);
 
             Insert(new TLabel(new TRect(2, 2, (short)(3 + (inputName ?? "~N~ame").Length), 3),
                 inputName ?? "~N~ame", FileName));
 
-            var sb = new TScrollBar(new TRect(3, 14, 34, 15));
+            var sb = new TScrollBar(new TRect(3, 14, (short)(w - 15), 15));
             Insert(sb);
-            FileList = new TFileList(new TRect(3, 6, 34, 14), sb);
+            FileList = new TFileList(new TRect(3, 6, (short)(w - 15), 14), sb);
             Insert(FileList);
             Insert(new TLabel(new TRect(2, 5, 8, 6), "~F~iles", FileList));
 
             ushort opt = TButton.BfDefault;
-            var r = new TRect(35, 3, 46, 5);
+            var r = new TRect((short)(w - 14), 3, (short)(w - 3), 5);
 
             if ((aOptions & FdOpenButton) != 0)
             {
@@ -280,12 +287,32 @@ namespace TVision
             Insert(new TButton(r, "Cancel", Commands.CmCancel, TButton.BfNormal));
             r.A.Y += 3; r.B.Y += 3;
 
-            Insert(new TFileInfoPane(new TRect(1, 16, 48, 18)));
+            Insert(new TFileInfoPane(new TRect(1, 16, (short)(w - 1), 18)));
 
             SelectNext(false);
 
             if ((aOptions & FdNoLoadDir) == 0)
                 ReadDirectory();
+        }
+
+        private static TRect ComputeBounds()
+        {
+            int w = 49, h = 19;
+            var dt = TProgram.DeskTop;
+            if (dt != null)
+            {
+                if (dt.Size.X >= 79) w = 79;
+                else if (dt.Size.X > 63) w = dt.Size.X - 14;
+                if (dt.Size.Y >= 29) h = 24;
+                else if (dt.Size.Y > 25) h = dt.Size.Y - 4;
+            }
+            int dx = 0, dy = 1;
+            if (dt != null && dt.Size.X > w)
+            {
+                dx = (dt.Size.X - w) / 2;
+                dy = Math.Max(1, (dt.Size.Y - h) / 3);
+            }
+            return new TRect((short)dx, (short)dy, (short)(dx + w), (short)(dy + h));
         }
 
         public void GetFileName(string[] s)

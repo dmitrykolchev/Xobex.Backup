@@ -155,6 +155,22 @@ namespace TVision
 
             try { Console.OutputEncoding = Encoding.UTF8; } catch { }
             try { Console.Write("\x1b[?25l"); } catch { }
+
+            try
+            {
+                int sz = Marshal.SizeOf<INPUT_RECORD>();
+                if (sz != 20)
+                    Console.Error.WriteLine($"[tvision] WARNING: INPUT_RECORD size {sz}, expected 20");
+                var probe = new INPUT_RECORD[1];
+                PeekConsoleInput(_handleIn, probe, 0, out _);
+                int err = Marshal.GetLastWin32Error();
+                if (err != 0 && err != 122)
+                    Console.Error.WriteLine($"[tvision] input probe error {err}");
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[tvision] input probe failed: {ex.Message}");
+            }
         }
 
         public override void Shutdown()
@@ -250,29 +266,67 @@ namespace TVision
         private void PumpInput()
         {
             if (_handleIn == IntPtr.Zero) return;
+            bool dbg = _dbgCount < 300 &&
+                       Environment.GetEnvironmentVariable("TVISION_DEBUG") == "1";
             var records = new INPUT_RECORD[32];
             while (true)
             {
-                if (!PeekConsoleInput(_handleIn, records, (uint)records.Length, out uint read) || read == 0)
+                if (!PeekConsoleInput(_handleIn, records, (uint)records.Length, out uint read))
+                {
+                    if (dbg)
+                    {
+                        _dbgCount++;
+                        Console.Error.WriteLine($"[input] peek failed err={Marshal.GetLastWin32Error()}");
+                    }
                     break;
+                }
+                if (read == 0) break;
                 if (!ReadConsoleInput(_handleIn, records, read, out uint got) || got == 0)
+                {
+                    if (dbg)
+                    {
+                        _dbgCount++;
+                        Console.Error.WriteLine($"[input] read failed err={Marshal.GetLastWin32Error()}");
+                    }
                     break;
+                }
                 for (uint i = 0; i < got; i++)
                 {
                     switch (records[i].EventType)
                     {
                         case KEY_EVENT:
+                            if (dbg && _dbgCount < 300)
+                            {
+                                _dbgCount++;
+                                var k = records[i].Event.KeyEvent;
+                                Console.Error.WriteLine($"[input] KEY down={k.bKeyDown} vk=0x{k.wVirtualKeyCode:X2} scan=0x{k.wVirtualScanCode:X2} ch=0x{k.UnicodeChar:X4} ctrl=0x{k.dwControlKeyState:X}");
+                            }
                             _keyQueue.Enqueue(records[i].Event.KeyEvent);
                             break;
                         case MOUSE_EVENT:
+                            if (dbg && _dbgCount < 300)
+                            {
+                                _dbgCount++;
+                                var m = records[i].Event.MouseEvent;
+                                Console.Error.WriteLine($"[input] MOUSE x={m.dwMousePosition.X} y={m.dwMousePosition.Y} btn=0x{m.dwButtonState:X} flags=0x{m.dwEventFlags:X}");
+                            }
                             TranslateMouseEvent(records[i].Event.MouseEvent);
                             break;
                         case WINDOW_BUFFER_SIZE_EVENT:
+                            break;
+                        default:
+                            if (dbg && _dbgCount < 300)
+                            {
+                                _dbgCount++;
+                                Console.Error.WriteLine($"[input] TYPE={records[i].EventType}");
+                            }
                             break;
                     }
                 }
             }
         }
+
+        private static int _dbgCount;
 
         private void TranslateMouseEvent(MOUSE_EVENT_RECORD m)
         {
@@ -529,11 +583,11 @@ namespace TVision
         [DllImport("kernel32.dll")]
         private static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
 
-        [DllImport("kernel32.dll", SetLastError = true)]
+        [DllImport("kernel32.dll", SetLastError = true, EntryPoint = "PeekConsoleInputW", ExactSpelling = true)]
         private static extern bool PeekConsoleInput(IntPtr hConsoleInput, [Out] INPUT_RECORD[] lpBuffer,
             uint nLength, out uint lpNumberOfEventsRead);
 
-        [DllImport("kernel32.dll", SetLastError = true)]
+        [DllImport("kernel32.dll", SetLastError = true, EntryPoint = "ReadConsoleInputW", ExactSpelling = true)]
         private static extern bool ReadConsoleInput(IntPtr hConsoleInput, [Out] INPUT_RECORD[] lpBuffer,
             uint nLength, out uint lpNumberOfEventsRead);
     }

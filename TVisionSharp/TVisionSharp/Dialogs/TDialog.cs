@@ -63,9 +63,7 @@ namespace TVision
 
         public override TPalette GetPalette()
         {
-            var pal = base.GetPalette();
-            if (pal == null) return new TPalette(CpDialog, 8);
-            return pal;
+            return new TPalette(CpGrayDialog, 32);
         }
 
         public override ushort Execute()
@@ -266,14 +264,15 @@ namespace TVision
 
             int w = Size.X;
             string title = Title ?? string.Empty;
-            int titleLen = Math.Min(title.Length, w - 2);
-            int pos = Math.Max(0, (w - titleLen - 2) / 2);
+            string plainTitle = title.Replace("~", "");
+            int titleLen = Math.Min(plainTitle.Length, w - 4);
+            int pos = Math.Max(1, (w - titleLen - 2) / 2);
 
-            buf.MoveChar(0, '[', color, 1);
+            buf.MoveChar(0, ' ', color, w);
+            buf.WriteChar(0, '[', color);
             if (titleLen > 0)
-                buf.MoveCStr(pos + 1, Title, pair);
-            buf.MoveChar(pos + titleLen + 1, ']', color, Math.Max(0, w - pos - titleLen - 2));
-            buf.MoveChar(w - 1, ' ', color, 1);
+                buf.MoveCStr(pos, Title, pair);
+            buf.WriteChar(w - 1, ']', color);
 
             WriteBuf(0, 0, (short)w, 1, buf);
 
@@ -283,7 +282,8 @@ namespace TVision
             if (Size.Y >= 2)
             {
                 var sbuf = new TDrawBuffer(w);
-                sbuf.MoveChar(0, ' ', shadowAttr, w);
+                sbuf.MoveChar(0, ' ', color, w);
+                sbuf.WriteChar(1, '\u2584', shadowAttr, Math.Max(0, w - 1));
                 WriteLine(0, 1, (short)w, 1, sbuf);
             }
         }

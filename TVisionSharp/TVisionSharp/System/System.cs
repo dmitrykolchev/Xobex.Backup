@@ -28,7 +28,11 @@ namespace TVision
         public static void GetMouseEvent(ref TEvent ev)
         {
             ev.What = EventCodes.EvNothing;
-            if (Platform.InputBroken) return;
+            if (Platform.InputBroken)
+            {
+                PipeInput.GetEvent(ref ev, 0);
+                return;
+            }
 
             var adapter = Platform.GetAdapter();
             while (adapter.GetMouseEvent(out var kind, out var m))
@@ -62,16 +66,35 @@ namespace TVision
 
             if (_pasteText != null && _pasteTextIndex < _pasteTextLength)
             {
+                char c = _pasteText[_pasteTextIndex];
                 ev.What = EventCodes.EvKeyDown;
-                ev.KeyDown.KeyCode = (ushort)_pasteText[_pasteTextIndex];
-                ev.KeyDown.Char0 = _pasteText[_pasteTextIndex];
-                ev.KeyDown.TextLength = 1;
+                ushort code = c switch
+                {
+                    '\u001B' => KeyCodes.KbEsc,
+                    '\r' or '\n' => KeyCodes.KbEnter,
+                    '\t' => KeyCodes.KbTab,
+                    '\b' => KeyCodes.KbBack,
+                    _ => (ushort)c
+                };
+                ev.KeyDown.KeyCode = code;
+                if (code >= 0x100)
+                {
+                    ev.KeyDown.Char0 = '\0';
+                    ev.KeyDown.TextLength = 0;
+                }
+                else
+                {
+                    ev.KeyDown.Char0 = c;
+                    ev.KeyDown.TextLength = 1;
+                }
                 _pasteTextIndex++;
                 return;
             }
 
             if (Platform.InputBroken)
             {
+                if (PipeInput.GetEvent(ref ev, 10))
+                    return;
                 ev.What = EventCodes.EvNothing;
                 return;
             }

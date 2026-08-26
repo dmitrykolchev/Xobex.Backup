@@ -810,7 +810,7 @@ namespace TVision
 
         public override void HandleEvent(TEvent ev)
         {
-            if (ev.What == EventCodes.EvKeyDown)
+            if (ev.What == EventCodes.EvKeyDown || ev.What == EventCodes.EvCommand)
             {
                 TEvent local = ev;
                 TView p = Last;
@@ -818,23 +818,15 @@ namespace TVision
                 {
                     if (p.GetState(Commands.SfVisible) && p.PreProcessKeyEvent(ref local))
                     {
-                        ev = local;
-                        break;
+                        return;
                     }
                     p = p.Next;
                     if (p == Last) break;
                 }
+                ev = local;
 
-                if (ev.What == EventCodes.EvCommand)
-                {
-                    if (Current != null && Current.GetState(Commands.SfVisible))
-                        Current.HandleEvent(ev);
+                if (ev.What == EventCodes.EvNothing)
                     return;
-                }
-                if (ev.What != EventCodes.EvKeyDown)
-                {
-                    return;
-                }
 
                 if (Current != null && Current.GetState(Commands.SfVisible))
                     Current.HandleEvent(ev);
@@ -844,6 +836,22 @@ namespace TVision
             {
                 if (Current != null && Current.GetState(Commands.SfVisible))
                     Current.HandleEvent(ev);
+                return;
+            }
+
+            bool positional = (ev.What & (EventCodes.EvMouseDown | EventCodes.EvMouseUp |
+                                           EventCodes.EvMouseMove | EventCodes.EvMouseAuto | EventCodes.EvMouseWheel)) != 0;
+            if (positional)
+            {
+                for (var v = First(); v != null; v = v.Next)
+                {
+                    if (v.GetState(Commands.SfVisible) && v.MouseInView(ev.Mouse.Where))
+                    {
+                        v.HandleEvent(ev);
+                        break;
+                    }
+                    if (v == Last) break;
+                }
                 return;
             }
 
@@ -1065,9 +1073,14 @@ namespace TVision
         public TFrame Frame;
         public string Title;
 
-        public const string CpBlueWindow = "\x17\x1F\x1E\x70\x78\x17\x1F\x1B";
-        public const string CpCyanWindow = "\x1F\x17\x1E\x70\x78\x1F\x1F\x1A";
-        public const string CpGrayWindow = "\x70\x78\x7F\x0F\x78\x70\x70\x70";
+        public const string CpBlueWindow = "\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
+        public const string CpCyanWindow = "\x10\x11\x12\x13\x14\x15\x16\x17";
+        public const string CpGrayWindow = "\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F";
+
+        public override TPalette GetPalette()
+        {
+            return new TPalette(CpBlueWindow, 8);
+        }
 
         public TWindow(TRect bounds, string aTitle, short aNumber)
             : base(bounds)
@@ -1091,7 +1104,7 @@ namespace TVision
         public virtual void Close()
         {
             if ((State & Commands.SfModal) != 0)
-                EndModal(Commands.CmClose);
+                EndModal(Commands.CmCancel);
             else
                 Hide();
         }
@@ -1122,8 +1135,69 @@ namespace TVision
         public override void SetState(ushort aState, bool enable)
         {
             base.SetState(aState, enable);
-            if (aState == Commands.SfFocused || aState == Commands.SfExposed)
-                Frame?.SetState(aState, enable);
+            if (aState == Commands.SfSelected && Frame != null)
+                Frame.SetState(Commands.SfActive, enable);
+            if ((aState == Commands.SfFocused || aState == Commands.SfExposed) && Frame != null)
+                Frame.SetState(aState, enable);
+        }
+
+        public void DragView(TEvent ev, byte mode)
+        {
+            TPoint last = ev.Mouse.Where;
+            bool dbg = Environment.GetEnvironmentVariable("TVISION_DEBUG") == "1";
+            var guard = 0;
+            while (guard++ < 1000000)
+            {
+                TEvent e = new TEvent();
+                if (Owner != null) Owner.GetEventRef(ref e);
+                else TEventQueue.GetKeyEvent(ref e);
+
+                if (e.What == EventCodes.EvNothing)
+                {
+                    System.Threading.Thread.Sleep(10);
+                    continue;
+                }
+                if (e.What == EventCodes.EvMouseUp)
+                {
+                    if (dbg) System.Console.Error.WriteLine($"[drag] end at ({e.Mouse.Where.X},{e.Mouse.Where.Y})");
+                    break;
+                }
+                if (e.What != EventCodes.EvMouseMove && e.What != EventCodes.EvMouseDown)
+                {
+                    if (dbg) System.Console.Error.WriteLine($"[drag] abort on ev={e.What}");
+                    PutEvent(e);
+                    break;
+                }
+
+                int dx = e.Mouse.Where.X - last.X;
+                int dy = e.Mouse.Where.Y - last.Y;
+                last = e.Mouse.Where;
+
+                var b = GetBounds();
+                if ((mode & Commands.DmDragMove) != 0)
+                {
+                    b.A.X += (short)dx; b.A.Y += (short)dy;
+                    b.B.X += (short)dx; b.B.Y += (short)dy;
+                    if (Owner != null)
+                    {
+                        var ext = Owner.GetExtent();
+                        if (b.A.X < 0) { b.B.X -= b.A.X; b.A.X = 0; }
+                        if (b.A.Y < 0) { b.B.Y -= b.A.Y; b.A.Y = 0; }
+                        if (b.B.X > ext.B.X) { b.A.X -= (short)(b.B.X - ext.B.X); b.B.X = ext.B.X; }
+                        if (b.B.Y > ext.B.Y) { b.A.Y -= (short)(b.B.Y - ext.B.Y); b.B.Y = ext.B.Y; }
+                    }
+                }
+                else if ((mode & Commands.DmDragGrow) != 0)
+                {
+                    TPoint min, max;
+                    SizeLimits(out min, out max);
+                    b.B.X = (short)Math.Max(b.A.X + min.X, Math.Min(max.X + b.A.X, b.B.X + dx));
+                    b.B.Y = (short)Math.Max(b.A.Y + min.Y, Math.Min(max.Y + b.A.Y, b.B.Y + dy));
+                }
+
+                Locate(b);
+                DrawAndFlush();
+            }
         }
 
         public override void SizeLimits(out TPoint min, out TPoint max)
@@ -1370,6 +1444,20 @@ namespace TVision
                     PutEvent(ce);
                     ClearEvent(ev);
                 }
+                else if ((win.Flags & Commands.WfMove) != 0)
+                {
+                    ClearEvent(ev);
+                    win.DragView(ev, Commands.DmDragMove);
+                }
+            }
+            else if (GetState(Commands.SfActive) && mouse.Y >= Size.Y - 1 &&
+                     (win.Flags & Commands.WfGrow) != 0)
+            {
+                if (mouse.X >= Size.X - 2 || mouse.X <= 1)
+                {
+                    ClearEvent(ev);
+                    win.DragView(ev, Commands.DmDragGrow);
+                }
             }
         }
 
@@ -1395,8 +1483,9 @@ namespace TVision
 
         public TScrollBar(TRect bounds) : base(bounds)
         {
+            bool horizontal = bounds.Width > bounds.Height;
             Chars = new char[5];
-            Array.Copy(VChars, Chars, 5);
+            Array.Copy(horizontal ? HChars : VChars, Chars, 5);
             MinVal = 0;
             MaxVal = 100;
             Value = 0;
@@ -1629,7 +1718,7 @@ namespace TVision
                     b.MoveChar(x0 + colW - 1, ' ', a, 1);
 
                     if (col < NumCols - 1)
-                        b.WriteChar(x0 + colW - 1, '\xB3', normal);
+                        b.WriteChar((short)(x0 + colW - 1), '\u2502', normal);
                 }
                 WriteLine((short)0, (short)row, (short)Size.X, (short)1, b);
             }

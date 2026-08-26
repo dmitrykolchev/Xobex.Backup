@@ -171,7 +171,21 @@ namespace TVision
             base.HandleEvent(ev);
         }
 
-        public virtual void Idle() { }
+        public virtual void Idle()
+        {
+            if (TView.CommandSetChanged)
+            {
+                TView.CommandSetChanged = false;
+                var tv = TopView();
+                if (tv != null)
+                {
+                    var ce = new TEvent();
+                    ce.What = EventCodes.EvBroadcast;
+                    ce.Message.Command = Commands.CmCommandSetChanged;
+                    tv.HandleEvent(ce);
+                }
+            }
+        }
 
         public static uint GetTickCount() => (uint)(Environment.TickCount & 0xFFFFFFFF);
 

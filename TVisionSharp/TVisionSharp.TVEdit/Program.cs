@@ -97,7 +97,7 @@ namespace TVEdit
         private static TStatusItem Hid(ushort key, ushort cmd, TStatusItem next = null)
             => new TStatusItem(null, new TKey(key), cmd, next);
 
-        private static TEditWindow OpenEditor(string fileName, bool visible)
+        internal static TEditWindow OpenEditor(string fileName, bool visible)
         {
             var dt = TProgram.DeskTop;
             if (dt == null) return null;
@@ -390,10 +390,140 @@ namespace TVEdit
     {
         static void Main(string[] args)
         {
+            if (args.Length > 0 && args[0] == "--inputtest")
+            {
+                InputTest();
+                return;
+            }
+            if (args.Length > 0 && args[0] == "--dialogtest")
+            {
+                Environment.Exit(DialogTest());
+            }
+            if (args.Length > 0 && args[0] == "--tiletest")
+            {
+                Environment.Exit(TileTest());
+            }
+            if (args.Length > 0 && args[0] == "--attrdump")
+            {
+                Environment.Exit(AttrDump());
+            }
             Platform.Init();
             var app = new TEditorApp(args);
             app.Run();
             Platform.Shutdown();
+        }
+
+        static int AttrDump()
+        {
+            Platform.Init();
+            var app = new TEditorApp(Array.Empty<string>());
+            app.SetState(Commands.SfExposed, true);
+            app.DrawView();
+
+            var sb = TScreen.ScreenBuffer;
+            void DumpMixed(int row, int count)
+            {
+                var parts = new string[Math.Min(count, TScreen.ScreenWidth)];
+                for (int x = 0; x < parts.Length; x++)
+                {
+                    var cell = sb[row * TScreen.ScreenWidth + x];
+                    char c = cell.Ch == '\0' ? '.' : cell.Ch;
+                    parts[x] = $"{c}:{cell.Attr.ToBios():X2}";
+                }
+                Console.Error.WriteLine($"row{row}: " + string.Join(" ", parts));
+            }
+            DumpMixed(0, 26);
+            DumpMixed(24, 45);
+            Platform.Shutdown();
+            return 0;
+        }
+
+        static int DialogTest()
+        {
+            Platform.Init();
+            var app = new TEditorApp(Array.Empty<string>());
+            app.SetState(Commands.SfExposed, true);
+            var dt = TProgram.DeskTop;
+            var dlg = new TFileDialog("*.*", "Open a File", "~N~ame",
+                TFileDialog.FdOpenButton, 100);
+            dlg.SetState(Commands.SfExposed, true);
+            dt.Insert(dlg);
+            Console.Error.WriteLine($"cwd={System.IO.Directory.GetCurrentDirectory()}");
+            Console.Error.WriteLine($"dirs={System.IO.Directory.GetDirectories(System.IO.Directory.GetCurrentDirectory()).Length} files={System.IO.Directory.GetFiles(System.IO.Directory.GetCurrentDirectory(), dlg.WildCard).Length}");
+            app.DrawAndFlush();
+            TEventQueue.SetPasteText("\u001B");
+            ushort res = dt.ExecView(dlg);
+            dt.Remove(dlg);
+            Console.Error.WriteLine($"dialog result={res}");
+            Platform.Shutdown();
+            return 0;
+        }
+
+        static int TileTest()
+        {
+            Platform.Init();
+            var app = new TEditorApp(new[] { Environment.GetEnvironmentVariable("TEMP") + "\\test.txt" });
+            app.SetState(Commands.SfExposed, true);
+            var dt = TProgram.DeskTop;
+            Console.Error.WriteLine($"before: {dt.Current?.GetBounds()}");
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var ev = new TEvent();
+            ev.What = EventCodes.EvCommand;
+            ev.Message.Command = Commands.CmTile;
+            app.HandleEvent(ev);
+            sw.Stop();
+            Console.Error.WriteLine($"route-tile took {sw.ElapsedMilliseconds} ms; after: {dt.Current?.GetBounds()}");
+            var ev2 = new TEvent();
+            ev2.What = EventCodes.EvCommand;
+            ev2.Message.Command = Commands.CmCascade;
+            app.HandleEvent(ev2);
+            Console.Error.WriteLine($"cascade ok; after: {dt.Current?.GetBounds()}");
+            app.DrawAndFlush();
+            Platform.Shutdown();
+            return 0;
+        }
+
+        static void InputTest()
+        {            Platform.Init();
+            Console.Error.WriteLine("INPUT TEST: press keys, click mouse. Ctrl+Q = quit.");
+            Console.Error.WriteLine($"input broken at start: {Platform.InputBroken}");
+            while (true)
+            {
+                var ev = new TEvent();
+                TEventQueue.GetKeyEvent(ref ev);
+                if (ev.What == EventCodes.EvNothing)
+                    TEventQueue.GetMouseEvent(ref ev);
+
+                if (ev.What != EventCodes.EvNothing)
+                {
+                    string desc;
+                    switch (ev.What)
+                    {
+                        case EventCodes.EvKeyDown:
+                            desc = $"KEY code=0x{ev.KeyDown.KeyCode:X4} char='{(char)ev.KeyDown.Char0}' ctrl={ev.KeyDown.ControlKeyState}";
+                            break;
+                        case EventCodes.EvMouseDown:
+                            desc = $"MOUSE DOWN at ({ev.Mouse.Where.X},{ev.Mouse.Where.Y}) buttons={ev.Mouse.Buttons}";
+                            break;
+                        case EventCodes.EvMouseUp:
+                            desc = $"MOUSE UP   at ({ev.Mouse.Where.X},{ev.Mouse.Where.Y})";
+                            break;
+                        case EventCodes.EvMouseMove:
+                            desc = $"MOUSE MOVE at ({ev.Mouse.Where.X},{ev.Mouse.Where.Y})";
+                            break;
+                        default:
+                            desc = $"EVENT what={ev.What}";
+                            break;
+                    }
+                    Console.Error.WriteLine(desc);
+                    if (ev.What == EventCodes.EvKeyDown &&
+                        (ev.KeyDown.KeyCode == KeyCodes.KbCtrlQ || ev.KeyDown.KeyCode == KeyCodes.KbEsc))
+                        break;
+                }
+                System.Threading.Thread.Sleep(5);
+            }
+            Platform.Shutdown();
+            Console.Error.WriteLine("INPUT TEST done.");
         }
     }
 }

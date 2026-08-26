@@ -312,9 +312,15 @@ namespace TVision
             bool mouseActive = false;
 
             Current = Menu.Deflt;
+            int iterGuard = 0;
 
             do
             {
+                if (++iterGuard > 200000)
+                {
+                    System.Console.Error.WriteLine("[tvision] menu execute runaway - aborted");
+                    break;
+                }
                 action = MenuAction.DoNothing;
                 TEvent e = new TEvent();
                 if (Owner != null) Owner.GetEventRef(ref e);
@@ -503,6 +509,7 @@ namespace TVision
                         target.SetState(Commands.SfVisible, true);
                         target.SetState(Commands.SfExposed, true);
                         Owner.Insert(target);
+                        target.DrawAndFlush();
                         result = Owner.ExecView(target);
                         Owner.Remove(target);
                         TObject.Destroy(target);
@@ -521,6 +528,7 @@ namespace TVision
                 else
                     result = 0;
 
+                DrawAndFlush();
                 firstEvent = false;
             } while (action != MenuAction.DoReturn);
 
@@ -530,6 +538,7 @@ namespace TVision
                 Current = null;
                 DrawView();
             }
+            DrawAndFlush();
             return result;
         }
 
@@ -625,6 +634,15 @@ namespace TVision
 
         public override bool PreProcessKeyEvent(ref TEvent ev)
         {
+            if (ev.What == EventCodes.EvCommand && ev.Message.Command == Commands.CmMenu)
+            {
+                var menuEv = new TEvent();
+                menuEv.What = EventCodes.EvCommand;
+                menuEv.Message.Command = Commands.CmMenu;
+                ev.What = EventCodes.EvNothing;
+                DoASelect(menuEv);
+                return true;
+            }
             if (ev.What != EventCodes.EvKeyDown) return false;
             ushort code = ev.KeyDown.KeyCode;
 
@@ -642,6 +660,13 @@ namespace TVision
                 }
             }
             return false;
+        }
+
+        private TMenuItem FirstWithSubMenu()
+        {
+            for (var item = Menu.Items; item != null; item = item.Next)
+                if (item.SubMenu != null) return item;
+            return null;
         }
     }
 
@@ -927,6 +952,7 @@ namespace TVision
                             {
                                 t = nt;
                                 DrawSelect(t);
+                                TScreen.FlushScreen();
                             }
                             ev.What = EventCodes.EvNothing;
                             TEvent me = new TEvent();
@@ -947,7 +973,7 @@ namespace TVision
                             ce.Message.Command = t.Command;
                             PutEvent(ce);
                         }
-                        DrawView();
+                        DrawAndFlush();
                         break;
                     }
 
@@ -974,7 +1000,7 @@ namespace TVision
                         ev.What = EventCodes.EvCommand;
                         ev.Message.Command = t.Command;
                         ev.Message.InfoPtr = null;
-                        return true;
+                        return false;
                     }
                 }
             }

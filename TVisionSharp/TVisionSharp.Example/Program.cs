@@ -87,11 +87,26 @@ namespace TVision.Example
 
             TEvent pe = new TEvent();
             app.GetEventRef(ref pe);
+            bool okAltF = pe.What == EventCodes.EvCommand &&
+                          pe.Message.Command == Commands.CmQuit;
 
-            bool ok = pe.What == EventCodes.EvCommand &&
-                      pe.Message.Command == Commands.CmQuit;
+            var f10 = new TEvent();
+            f10.What = EventCodes.EvKeyDown;
+            f10.KeyDown.KeyCode = KeyCodes.KbF10;
+            bool transformed = !TProgram.StatusLine.PreProcessKeyEvent(ref f10)
+                               && f10.What == EventCodes.EvCommand
+                               && f10.Message.Command == Commands.CmMenu;
+            bool okMenu = false;
+            if (transformed)
+            {
+                TEventQueue.SetPasteText("\u001B");
+                app.HandleEvent(f10);
+                okMenu = true;
+            }
+
+            bool ok = okAltF && okMenu && transformed;
             Platform.Shutdown();
-            Console.Error.WriteLine(ok ? "SELFTEST OK" : $"SELFTEST FAIL what={pe.What} cmd={pe.Message.Command:X4}");
+            Console.Error.WriteLine(ok ? "SELFTEST OK" : $"SELFTEST FAIL altF={okAltF} menu={okMenu} transformed={transformed}");
             return ok ? 7 : 3;
         }
     }
