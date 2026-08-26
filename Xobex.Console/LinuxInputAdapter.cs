@@ -8,6 +8,9 @@ using static Xobex.Console.LinuxNative;
 
 namespace Xobex.Console;
 
+/// <summary>
+/// LinuxInputAdapter class
+/// </summary>
 public unsafe class LinuxInputAdapter : IDisposable
 {
     private termios _original;
@@ -18,6 +21,11 @@ public unsafe class LinuxInputAdapter : IDisposable
         Out = conOut;
     }
 
+    /// <summary>
+    /// Creates new instance of a <see cref="LinuxInputAdapter"/>
+    /// </summary>
+    /// <param name="conOut"></param>
+    /// <returns></returns>
     public static LinuxInputAdapter Create(LinuxOutputAdapter conOut)
     {
         var conIn = new LinuxInputAdapter(conOut);
@@ -34,19 +42,25 @@ public unsafe class LinuxInputAdapter : IDisposable
         }
     }
 
+    /// <summary>
+    /// Gets Out adapters
+    /// </summary>
     public LinuxOutputAdapter Out { get; }
 
-    public void Dispose()
-    {
-        Reset();
-        GC.SuppressFinalize(this);
-    }
-
+    /// <summary>
+    /// Determines whether user input is available
+    /// </summary>
+    /// <returns>true is user input available</returns>
     public bool HasInput()
     {
         return HasInput(0);
     }
 
+    /// <summary>
+    /// Determines whether user input is available
+    /// </summary>
+    /// <param name="timeoutMs">timeout in miliseconds</param>
+    /// <returns>true is user input available</returns>
     public bool HasInput(int timeoutMs)
     {
         int ret;
@@ -74,6 +88,11 @@ public unsafe class LinuxInputAdapter : IDisposable
         return false;
     }
 
+    /// <summary>
+    /// Reads console/terminal user input
+    /// </summary>
+    /// <param name="buffer">Buffer</param>
+    /// <returns>number of bytes read</returns>
     public int Read(Span<byte> buffer)
     {
         if (buffer.Length == 0)
@@ -95,6 +114,18 @@ public unsafe class LinuxInputAdapter : IDisposable
         }
     }
 
+    /// <summary>
+    /// Resets state of the terminal
+    /// </summary>
+    public void Dispose()
+    {
+        Reset();
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Resets state of the terminal
+    /// </summary>
     public void Reset()
     {
         try
