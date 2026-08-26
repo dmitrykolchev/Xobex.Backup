@@ -49,12 +49,17 @@ public class InputEvent
         rawData.CopyTo(RawData);
     }
 
-    public InputEvent(InputEventType eventType, ConsoleKey key, ConsoleModifiers mod, char ch, bool keyDown, ReadOnlySpan<byte> rawData) : this(eventType, rawData)
+    public InputEvent(ConsoleKey key, ConsoleModifiers mod, char ch, bool keyDown, ReadOnlySpan<byte> rawData) : this(InputEventType.Key, rawData)
     {
-        Key = new KeyEvent { Key = key, Mod = mod, Ch = ch, KeyDown = keyDown };
+        Key = new KeyEvent { Key = key, RepeatCount = 1, Mod = mod, Ch = ch, KeyDown = keyDown };
     }
 
-    public InputEvent(InputEventType eventType, MouseEvent mouse, ReadOnlySpan<byte> rawData) : this(eventType, rawData)
+    public InputEvent(KeyEvent keyEvent, ReadOnlySpan<byte> rawData) : this(InputEventType.Key, rawData)
+    {
+        Key = keyEvent;
+    }
+
+    public InputEvent(MouseEvent mouse, ReadOnlySpan<byte> rawData) : this(InputEventType.Mouse, rawData)
     {
         Mouse = mouse;
     }
@@ -75,18 +80,18 @@ public class InputEvent
         sb.Append(EventType).Append(':');
         if (EventType == InputEventType.Key)
         {
-            if(Key.KeyDown)
-            {
-                sb.Append("Down");
-            }
-            else
-            {
-                sb.Append("Up");
-            }
             sb.Append(' ').Append(Key.Key);
             if (Key.Mod != ConsoleModifiers.None)
             {
                 sb.Append('+').Append(Key.Mod);
+            }
+            if (Key.KeyDown)
+            {
+                sb.Append(" (dn)");
+            }
+            else
+            {
+                sb.Append(" (up)");
             }
             sb.Append(" Ch=").Append(FormattableString.Invariant($"\\u{(ushort)Key.Ch:X4}"));
         }
@@ -106,20 +111,25 @@ public class InputEvent
 
     internal static InputEvent Create(ConsoleKey key, ConsoleModifiers mod, char ch, bool keyDown, ReadOnlySpan<byte> rawData)
     {
-        return new InputEvent(InputEventType.Key, key, mod, ch, keyDown, rawData);
+        return new InputEvent(key, mod, ch, keyDown, rawData);
+    }
+    internal static InputEvent Create(KeyEvent keyEvent,  ReadOnlySpan<byte> rawData)
+    {
+        return new InputEvent(keyEvent, rawData);
     }
 
     internal static InputEvent Create(MouseEvent mouse, ReadOnlySpan<byte> rawData)
     {
-        return new InputEvent(InputEventType.Mouse, mouse, rawData);
+        return new InputEvent(mouse, rawData);
     }
 
     public readonly struct KeyEvent
     {
-        public char Ch { get; init; }
+        public bool KeyDown { get; init; }
         public ConsoleKey Key { get; init; }
         public ConsoleModifiers Mod { get; init; }
-        public bool KeyDown { get; init; }
+        public int RepeatCount { get; init; }
+        public char Ch { get; init; }
     }
 
     public readonly struct MouseEvent
