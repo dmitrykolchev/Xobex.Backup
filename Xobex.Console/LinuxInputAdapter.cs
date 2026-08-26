@@ -120,7 +120,6 @@ public unsafe class LinuxInputAdapter : IDisposable
     public void Dispose()
     {
         Reset();
-        GC.SuppressFinalize(this);
     }
 
     /// <summary>
