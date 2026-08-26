@@ -3,17 +3,27 @@
 // See LICENSE in the project root for license information
 // </copyright>
 
-using System.Runtime.CompilerServices;
 using System.Text;
-using Xobex.Console.Abstractions;
+using Windows.Win32.System.Console;
+using static Windows.Win32.PInvoke;
 
 namespace Xobex.Console.Windows;
 
-public class WindowsOutputAdapter : ITerminalOutputAdapter
+public class WindowsOutputAdapter : TerminalOutputAdapter
 {
-    public WindowsOutputAdapter(TextWriter writer)
+    private readonly CONSOLE_MODE _prevMode;
+
+    public WindowsOutputAdapter(TextWriter writer) : base(writer)
     {
-        Writer = writer;
+        using var hOut = GetStdHandle_SafeHandle(STD_HANDLE.STD_OUTPUT_HANDLE);
+        if (GetConsoleMode(hOut, out var mode))
+        {
+            _prevMode = mode;
+            mode |= CONSOLE_MODE.ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+            mode |= CONSOLE_MODE.DISABLE_NEWLINE_AUTO_RETURN;
+            //mode &= ~CONSOLE_MODE.ENABLE_WRAP_AT_EOL_OUTPUT;
+            SetConsoleMode(hOut, mode);
+        }
     }
 
     public static WindowsOutputAdapter Create(int bufferSize = 128 * 1024)
@@ -25,40 +35,9 @@ public class WindowsOutputAdapter : ITerminalOutputAdapter
         return new WindowsOutputAdapter(writer);
     }
 
-    private TextWriter Writer
+    protected override void Reset()
     {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Write(char ch)
-    {
-        Writer.Write(ch);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Write(string text)
-    {
-        Writer.Write(text);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void WriteLine()
-    {
-        Writer.Write("\r\n");
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void WriteLine(string text)
-    {
-        Writer.Write(text);
-        WriteLine();
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Flush()
-    {
-        Writer.Flush();
+        using var hOut = GetStdHandle_SafeHandle(STD_HANDLE.STD_OUTPUT_HANDLE);
+        SetConsoleMode(hOut, _prevMode);
     }
 }

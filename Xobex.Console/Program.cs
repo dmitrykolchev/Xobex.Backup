@@ -13,18 +13,39 @@ internal class Program
 {
     private static void Main(string[] args)
     {
+        using var notifier = new TerminalResizeNotifier();
         if (OperatingSystem.IsWindows())
         {
-            var conOut = WindowsOutputAdapter.Create();
+            using var conOut = WindowsOutputAdapter.Create();
             using var conIn = WindowsInputAdapter.Create();
             using var mouse = conIn.EnableMouseInput();
+
+            notifier.Resized += (sender, e) =>
+            {
+                conOut.WriteLine($"Terminal size changed: {conOut.Width}x{conOut.Height}");
+                conOut.Flush();
+            };
+            conOut.SetCursorPosition(20, 20);
+            conOut.SetTextStyle(TextStyle.Underline);
+            conOut.Write("Hello World");
+            conOut.Flush();
             ProcessConsoleEvents(conIn, conOut);
         }
         else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
         {
-            var conOut = LinuxOutputAdapter.Create();
+            using var conOut = LinuxOutputAdapter.Create();
             using ITerminalInputAdapter conIn = LinuxInputAdapter.Create(conOut);
             using var mouse = conIn.EnableMouseInput();
+
+            notifier.Resized += (sender, e) =>
+            {
+                conOut.WriteLine($"Terminal size changed: {conOut.Width}x{conOut.Height}");
+                conOut.Flush();
+            };
+            conOut.SetCursorPosition(20, 20);
+            conOut.SetTextStyle(TextStyle.Underline);
+            conOut.Write("Hello World");
+            conOut.Flush();
             ProcessConsoleEvents(conIn, conOut);
         }
         else
