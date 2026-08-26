@@ -9,6 +9,10 @@ public interface ITerminalInputAdapter : IDisposable
 {
     ITerminalParser CreateParser();
 
+    IDisposable EnableMouseInput();
+
+    void DisableMouseInput();
+
     bool HasInput();
 
     bool HasInput(int timeoutMs);

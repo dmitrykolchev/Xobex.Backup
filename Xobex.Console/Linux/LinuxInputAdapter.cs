@@ -3,6 +3,7 @@
 // See LICENSE in the project root for license information
 // </copyright>
 
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Xobex.Console.Abstractions;
 using static Xobex.Console.LinuxNative;
@@ -16,9 +17,11 @@ public unsafe class LinuxInputAdapter : ITerminalInputAdapter
 {
     private termios _original;
     private bool _rawMode;
+    private bool _mouseInputEnabled;
 
-    private LinuxInputAdapter()
+    private LinuxInputAdapter(ITerminalOutputAdapter conOut)
     {
+        Out = conOut;
     }
 
     /// <summary>
@@ -26,11 +29,33 @@ public unsafe class LinuxInputAdapter : ITerminalInputAdapter
     /// </summary>
     /// <param name="conOut">Must be not null to enable mouse input evens</param>
     /// <returns></returns>
-    public static LinuxInputAdapter Create()
+    public static LinuxInputAdapter Create(ITerminalOutputAdapter conOut)
     {
-        var conIn = new LinuxInputAdapter();
+        var conIn = new LinuxInputAdapter(conOut);
         conIn.EnableRawMode();
         return conIn;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IDisposable EnableMouseInput()
+    {
+        // Enable mouse tracking sequences
+        Out.Write("\x1b[?1000h\x1b[?1003h\x1b[?1006h");
+        Out.Flush();
+        _mouseInputEnabled = true;
+        return new MouseInputHandler(this);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void DisableMouseInput()
+    {
+        if (_mouseInputEnabled)
+        {
+            // Disable mouse tracking sequences
+            Out.Write("\x1b[?1000l\x1b[?1003l\x1b[?1006l");
+            Out.Flush();
+            _mouseInputEnabled = false;
+        }
     }
 
     public ITerminalParser CreateParser()
@@ -41,7 +66,7 @@ public unsafe class LinuxInputAdapter : ITerminalInputAdapter
     /// <summary>
     /// Gets Out adapters
     /// </summary>
-    private LinuxOutputAdapter? Out { get; set; }
+    private ITerminalOutputAdapter Out { get; set; }
 
     /// <summary>
     /// Determines whether user input is available
@@ -125,7 +150,7 @@ public unsafe class LinuxInputAdapter : ITerminalInputAdapter
     {
         try
         {
-            Out?.DisableMouseInput();
+            DisableMouseInput();
         }
         finally
         {
@@ -163,6 +188,21 @@ public unsafe class LinuxInputAdapter : ITerminalInputAdapter
         {
             var errno = Marshal.GetLastPInvokeError();
             throw new InvalidOperationException($"{name} failed {errno} - {Marshal.GetLastPInvokeErrorMessage()}");
+        }
+    }
+
+    private class MouseInputHandler : IDisposable
+    {
+        private readonly LinuxInputAdapter _conIn;
+
+        public MouseInputHandler(LinuxInputAdapter conIn)
+        {
+            _conIn = conIn;
+        }
+
+        public void Dispose()
+        {
+            _conIn.DisableMouseInput();
         }
     }
 }

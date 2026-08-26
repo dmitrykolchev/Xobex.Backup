@@ -31,38 +31,6 @@ public class LinuxOutputAdapter: ITerminalOutputAdapter
         get;
     }
 
-    private class MouseInputHandler: IDisposable
-    {
-        private readonly LinuxOutputAdapter _conOut;
-
-        public MouseInputHandler(LinuxOutputAdapter conOut)
-        {
-            _conOut = conOut;
-        }
-
-        public void Dispose()
-        {
-            _conOut.DisableMouseInput();
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IDisposable EnableMouseInput()
-    {
-        // Enable mouse tracking sequences
-        Write("\x1b[?1000h\x1b[?1003h\x1b[?1006h");
-        Flush();
-        return new MouseInputHandler(this);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void DisableMouseInput()
-    {
-        // Disable mouse tracking sequences
-        Write("\x1b[?1000l\x1b[?1003l\x1b[?1006l");
-        Flush();
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Write(char ch)
     {

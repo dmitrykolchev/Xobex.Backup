@@ -24,8 +24,8 @@ internal class Program
         {
 
             ITerminalOutputAdapter conOut = LinuxOutputAdapter.Create();
-            using ITerminalInputAdapter conIn = LinuxInputAdapter.Create();
-            using var mouse = conOut.EnableMouseInput();
+            using ITerminalInputAdapter conIn = LinuxInputAdapter.Create(conOut);
+            using var mouse = conIn.EnableMouseInput();
             var terminalParser = conIn.CreateParser();
 
             for (; ; )
@@ -44,13 +44,13 @@ internal class Program
                         }
                         else if (ev.Key.Ch == 'M')
                         {
-                            conOut.EnableMouseInput();
+                            conIn.EnableMouseInput();
                             conOut.WriteLine($"Mouse input enabled");
                             conOut.Flush();
                         }
                         else if (ev.Key.Ch == 'm')
                         {
-                            conOut.DisableMouseInput();
+                            conIn.DisableMouseInput();
                             conOut.WriteLine($"Mouse input disabled");
                             conOut.Flush();
                         }

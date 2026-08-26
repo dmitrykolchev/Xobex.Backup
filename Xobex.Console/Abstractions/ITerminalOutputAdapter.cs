@@ -17,7 +17,4 @@ public interface ITerminalOutputAdapter
 
     void Flush();
 
-    IDisposable EnableMouseInput();
-
-    void DisableMouseInput();
 }
