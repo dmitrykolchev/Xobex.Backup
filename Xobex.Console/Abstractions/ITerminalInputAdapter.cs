@@ -13,11 +13,11 @@ public interface ITerminalInputAdapter : IDisposable
 
     void DisableMouseInput();
 
-    bool HasInput();
+    //bool HasInput();
 
-    bool HasInput(int timeoutMs);
+    //bool HasInput(int timeoutMs);
 
-    int Read(Span<byte> buffer);
+    //int Read(Span<byte> buffer);
 
     void Reset();
 }

@@ -133,12 +133,12 @@ public class LinuxTerminalParser: ITerminalParser
         [24] = Key.F12,
     };
 
-    private readonly InputBuffer _buffer;
+    private readonly LinuxInputBuffer _buffer;
     private byte[] _rawData;
     private int _rawDataPosition;
     private readonly Stack<InputToken> _ungetBuffer = new();
 
-    internal LinuxTerminalParser(InputBuffer inputBuffer)
+    internal LinuxTerminalParser(LinuxInputBuffer inputBuffer)
     {
         _buffer = inputBuffer;
         _rawData = new byte[128];
@@ -173,10 +173,10 @@ public class LinuxTerminalParser: ITerminalParser
                     result = ParseEscapeSequence(out ev);
                     break;
                 case InputTokenType.SP:
-                    ev = InputEvent.Create(Key.Spacebar, Mod.None, (char)token.Ch, GetRawData());
+                    ev = InputEvent.Create(Key.Spacebar, Mod.None, (char)token.Ch, true, GetRawData());
                     break;
                 case InputTokenType.DEL:
-                    ev = InputEvent.Create(Key.Backspace, Mod.None, (char)token.Ch, GetRawData());
+                    ev = InputEvent.Create(Key.Backspace, Mod.None, (char)token.Ch, true, GetRawData());
                     break;
                 case InputTokenType.Char8Bit:
                     result = ParseUtf8Character(token.Ch, Mod.None, out ev);
@@ -184,11 +184,11 @@ public class LinuxTerminalParser: ITerminalParser
                 default:
                     if (token.TokenType == InputTokenType.UpperCase)
                     {
-                        ev = InputEvent.Create(Key.A + (token.Ch - 'A'), Mod.Shift, (char)token.Ch, GetRawData());
+                        ev = InputEvent.Create(Key.A + (token.Ch - 'A'), Mod.Shift, (char)token.Ch, true, GetRawData());
                     }
                     else if (token.TokenType == InputTokenType.LowerCase)
                     {
-                        ev = InputEvent.Create(Key.A + (token.Ch - 'a'), Mod.None, (char)token.Ch, GetRawData());
+                        ev = InputEvent.Create(Key.A + (token.Ch - 'a'), Mod.None, (char)token.Ch, true, GetRawData());
                     }
                     else
                     {
@@ -254,9 +254,9 @@ public class LinuxTerminalParser: ITerminalParser
     {
         if (_charToConsoleKey.TryGetValue(ch, out var entry))
         {
-            return InputEvent.Create(entry.Key, entry.Mod | additionalModifiers, ch, rawData);
+            return InputEvent.Create(entry.Key, entry.Mod | additionalModifiers, ch, true, rawData);
         }
-        return InputEvent.Create(Key.None, additionalModifiers, ch, rawData);
+        return InputEvent.Create(Key.None, additionalModifiers, ch, true, rawData);
     }
 
     private bool ParseEscapeSequence(out InputEvent? ev)
@@ -266,7 +266,7 @@ public class LinuxTerminalParser: ITerminalParser
         switch(token.TokenType)
         {
             case InputTokenType.Separator:
-                ev = InputEvent.Create(Key.Escape, Mod.None, (char)token.Ch, GetRawData());
+                ev = InputEvent.Create(Key.Escape, Mod.None, (char)token.Ch, true, GetRawData());
                 return true;
             case InputTokenType.SOH: case InputTokenType.STX: case InputTokenType.ETX: case InputTokenType.EOT:
             case InputTokenType.ENQ: case InputTokenType.ACK: case InputTokenType.BEL: case InputTokenType.BS:
@@ -278,11 +278,11 @@ public class LinuxTerminalParser: ITerminalParser
             case InputTokenType.IS2: case InputTokenType.IS1:
                 {
                     (var key, var mod) = _charToConsoleKey[(char)token.Ch];
-                    ev = InputEvent.Create(key, mod | Mod.Alt, '\u0000', GetRawData());
+                    ev = InputEvent.Create(key, mod | Mod.Alt, '\u0000', true, GetRawData());
                     break;
                 }
             case InputTokenType.ESC:
-                ev = InputEvent.Create(Key.Oem4, Mod.Alt | Mod.Control, '\u0000', GetRawData());
+                ev = InputEvent.Create(Key.Oem4, Mod.Alt | Mod.Control, '\u0000', true, GetRawData());
                 break;
             default:
                 switch((char)token.Ch)
@@ -302,11 +302,11 @@ public class LinuxTerminalParser: ITerminalParser
                     default:
                         if (token.TokenType == InputTokenType.UpperCase)
                         {
-                            ev = InputEvent.Create(Key.A + (token.Ch - 'A'), Mod.Alt | Mod.Shift, '\u0000', GetRawData());
+                            ev = InputEvent.Create(Key.A + (token.Ch - 'A'), Mod.Alt | Mod.Shift, '\u0000', true, GetRawData());
                         }
                         else if (token.TokenType == InputTokenType.LowerCase)
                         {
-                            ev = InputEvent.Create(Key.A + (token.Ch - 'a'), Mod.Alt, '\u0000', GetRawData());
+                            ev = InputEvent.Create(Key.A + (token.Ch - 'a'), Mod.Alt, '\u0000', true, GetRawData());
                         }
                         else if (token.TokenType == InputTokenType.Char8Bit)
                         {
@@ -330,7 +330,7 @@ public class LinuxTerminalParser: ITerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(Key.Oem6, Mod.Alt, '\u0000', GetRawData());
+            ev = InputEvent.Create(Key.Oem6, Mod.Alt, '\u0000', true, GetRawData());
             return true;
         }
         UngetToken(token);
@@ -366,7 +366,7 @@ public class LinuxTerminalParser: ITerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(Key.Oem4, Mod.Alt, '\u0000', GetRawData());
+            ev = InputEvent.Create(Key.Oem4, Mod.Alt, '\u0000', true, GetRawData());
             return true;
         }
         if ((char)token.Ch == '<')
@@ -413,7 +413,7 @@ public class LinuxTerminalParser: ITerminalParser
             ev = null;
             return false;
         }
-        ev = InputEvent.Create(key, modifiers, '\u0000', GetRawData());
+        ev = InputEvent.Create(key, modifiers, '\u0000', true, GetRawData());
         return true;
     }
 
@@ -579,7 +579,7 @@ public class LinuxTerminalParser: ITerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(Key.P, Mod.Alt, '\u0000', GetRawData());
+            ev = InputEvent.Create(Key.P, Mod.Alt, '\u0000', true, GetRawData());
             return true;
         }
         UngetToken(token);
@@ -595,48 +595,48 @@ public class LinuxTerminalParser: ITerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(Key.O, Mod.Alt | Mod.Shift, '\u0000', GetRawData());
+            ev = InputEvent.Create(Key.O, Mod.Alt | Mod.Shift, '\u0000', true, GetRawData());
         }
         else
         {
             switch((char)token.Ch)
             {
                 case 'A':
-                    ev = InputEvent.Create(Key.UpArrow, Mod.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.UpArrow, Mod.None, '\u0000', true, GetRawData());
                     break;
                 case 'B':
-                    ev = InputEvent.Create(Key.DownArrow, Mod.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.DownArrow, Mod.None, '\u0000', true, GetRawData());
                     break;
                 case 'C':
-                    ev = InputEvent.Create(Key.RightArrow, Mod.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.RightArrow, Mod.None, '\u0000', true, GetRawData());
                     break;
                 case 'D':
-                    ev = InputEvent.Create(Key.LeftArrow, Mod.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.LeftArrow, Mod.None, '\u0000', true, GetRawData());
                     break;
                 case 'E':
-                    ev = InputEvent.Create(Key.Clear, Mod.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.Clear, Mod.None, '\u0000', true, GetRawData());
                     break;
                 case 'F':
-                    ev = InputEvent.Create(Key.End, Mod.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.End, Mod.None, '\u0000', true, GetRawData());
                     break;
                 case 'H':
-                    ev = InputEvent.Create(Key.Home, Mod.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.Home, Mod.None, '\u0000', true, GetRawData());
                     break;
                 case 'P':
-                    ev = InputEvent.Create(Key.F1, Mod.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.F1, Mod.None, '\u0000', true, GetRawData());
                     break;
                 case 'Q':
-                    ev = InputEvent.Create(Key.F2, Mod.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.F2, Mod.None, '\u0000', true, GetRawData());
                     break;
                 case 'R':
-                    ev = InputEvent.Create(Key.F3, Mod.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.F3, Mod.None, '\u0000', true, GetRawData());
                     break;
                 case 'S':
-                    ev = InputEvent.Create(Key.F4, Mod.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.F4, Mod.None, '\u0000', true, GetRawData());
                     break;
                 default:
                     UngetToken(token);
-                    ev = InputEvent.Create(Key.O, Mod.Alt | Mod.Shift, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.O, Mod.Alt | Mod.Shift, '\u0000', true, GetRawData());
                     break;
             }
         }
@@ -670,7 +670,7 @@ public class LinuxTerminalParser: ITerminalParser
             ev = null;
             return false;
         }
-        ev = InputEvent.Create(Key.None, modifiers, (char)rune.Value, GetRawData());
+        ev = InputEvent.Create(Key.None, modifiers, (char)rune.Value, true, GetRawData());
         return true;
     }
 

@@ -17,9 +17,8 @@ public unsafe class LinuxInputAdapter : ITerminalInputAdapter
 {
     private termios _original;
     private bool _rawMode;
-    private bool _mouseInputEnabled;
 
-    private LinuxInputAdapter(ITerminalOutputAdapter conOut)
+    private LinuxInputAdapter(LinuxOutputAdapter conOut)
     {
         Out = conOut;
     }
@@ -29,7 +28,7 @@ public unsafe class LinuxInputAdapter : ITerminalInputAdapter
     /// </summary>
     /// <param name="conOut">Must be not null to enable mouse input evens</param>
     /// <returns></returns>
-    public static LinuxInputAdapter Create(ITerminalOutputAdapter conOut)
+    public static LinuxInputAdapter Create(LinuxOutputAdapter conOut)
     {
         var conIn = new LinuxInputAdapter(conOut);
         conIn.EnableRawMode();
@@ -42,31 +41,26 @@ public unsafe class LinuxInputAdapter : ITerminalInputAdapter
         // Enable mouse tracking sequences
         Out.Write("\x1b[?1000h\x1b[?1003h\x1b[?1006h");
         Out.Flush();
-        _mouseInputEnabled = true;
         return new MouseInputHandler(this);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void DisableMouseInput()
     {
-        if (_mouseInputEnabled)
-        {
-            // Disable mouse tracking sequences
-            Out.Write("\x1b[?1000l\x1b[?1003l\x1b[?1006l");
-            Out.Flush();
-            _mouseInputEnabled = false;
-        }
+        // Disable mouse tracking sequences
+        Out.Write("\x1b[?1000l\x1b[?1003l\x1b[?1006l");
+        Out.Flush();
     }
 
     public ITerminalParser CreateParser()
     {
-        return new LinuxTerminalParser(new InputBuffer(this));
+        return new LinuxTerminalParser(new LinuxInputBuffer(this));
     }
 
     /// <summary>
     /// Gets Out adapters
     /// </summary>
-    private ITerminalOutputAdapter Out { get; set; }
+    private LinuxOutputAdapter Out { get; set; }
 
     /// <summary>
     /// Determines whether user input is available

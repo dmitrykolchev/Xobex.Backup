@@ -1,3 +1,10 @@
+// <copyright file="InputEvent.cs" company="Dmitry Kolchev">
+// Copyright (c) 2026 Dmitry Kolchev. All rights reserved.
+// See LICENSE in the project root for license information
+// </copyright>
+
+using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 
 namespace Xobex.Console;
@@ -12,8 +19,10 @@ public enum InputEventType
 
 public enum MouseAction
 {
+    None,
     Down,
     Up,
+    DblClick,
     Move,
     WheelUp,
     WheelDown,
@@ -21,28 +30,28 @@ public enum MouseAction
     WheelRight
 }
 
+[Flags]
 public enum MouseButton
 {
-    None,
-    Left,
-    Middle,
-    Right
+    None = 0,
+    Left = 1,
+    Right = 2,
+    Middle = 4
 }
 
 public class InputEvent
 {
-    private readonly byte[] _rawData;
-
-    public InputEvent(InputEventType eventType, ReadOnlySpan<byte> rawData)
+    private InputEvent(InputEventType eventType, ReadOnlySpan<byte> rawData)
     {
         EventType = eventType;
-        _rawData = new byte[rawData.Length];
-        rawData.CopyTo(_rawData);
+        Timestamp = Stopwatch.GetTimestamp();
+        RawData = new byte[rawData.Length];
+        rawData.CopyTo(RawData);
     }
 
-    public InputEvent(InputEventType eventType, ConsoleKey key, ConsoleModifiers mod, char ch, ReadOnlySpan<byte> rawData): this(eventType, rawData)
+    public InputEvent(InputEventType eventType, ConsoleKey key, ConsoleModifiers mod, char ch, bool keyDown, ReadOnlySpan<byte> rawData) : this(eventType, rawData)
     {
-        Key = new KeyEvent { Key = key, Mod = mod, Ch = ch };
+        Key = new KeyEvent { Key = key, Mod = mod, Ch = ch, KeyDown = keyDown };
     }
 
     public InputEvent(InputEventType eventType, MouseEvent mouse, ReadOnlySpan<byte> rawData) : this(eventType, rawData)
@@ -56,7 +65,9 @@ public class InputEvent
 
     public MouseEvent Mouse { get; }
 
-    public byte[] RawData => _rawData;
+    public long Timestamp { get; }
+
+    public byte[] RawData { get; }
 
     public override string ToString()
     {
@@ -64,6 +75,14 @@ public class InputEvent
         sb.Append(EventType).Append(':');
         if (EventType == InputEventType.Key)
         {
+            if(Key.KeyDown)
+            {
+                sb.Append("Down");
+            }
+            else
+            {
+                sb.Append("Up");
+            }
             sb.Append(' ').Append(Key.Key);
             if (Key.Mod != ConsoleModifiers.None)
             {
@@ -80,13 +99,14 @@ public class InputEvent
             }
             sb.Append(" Pos=(").Append(Mouse.X).Append(',').Append(Mouse.Y).Append(')');
         }
-        sb.Append(" Raw=[").Append(Convert.ToHexString(_rawData)).Append(']');
+        sb.Append(CultureInfo.InvariantCulture, $" TS={Timestamp}");
+        sb.Append(" Raw=[").Append(Convert.ToHexString(RawData)).Append(']');
         return sb.ToString();
     }
 
-    internal static InputEvent Create(ConsoleKey key, ConsoleModifiers mod, char ch, ReadOnlySpan<byte> rawData)
+    internal static InputEvent Create(ConsoleKey key, ConsoleModifiers mod, char ch, bool keyDown, ReadOnlySpan<byte> rawData)
     {
-        return new InputEvent(InputEventType.Key, key, mod, ch, rawData);
+        return new InputEvent(InputEventType.Key, key, mod, ch, keyDown, rawData);
     }
 
     internal static InputEvent Create(MouseEvent mouse, ReadOnlySpan<byte> rawData)
@@ -94,14 +114,15 @@ public class InputEvent
         return new InputEvent(InputEventType.Mouse, mouse, rawData);
     }
 
-    public struct KeyEvent
+    public readonly struct KeyEvent
     {
         public char Ch { get; init; }
         public ConsoleKey Key { get; init; }
         public ConsoleModifiers Mod { get; init; }
+        public bool KeyDown { get; init; }
     }
 
-    public struct MouseEvent
+    public readonly struct MouseEvent
     {
         public MouseButton Button { get; init; }
         public MouseAction Action { get; init; }
