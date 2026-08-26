@@ -5,10 +5,11 @@
 
 using System.Runtime.CompilerServices;
 using System.Text;
+using Xobex.Console.Abstractions;
 
-namespace Xobex.Console;
+namespace Xobex.Console.Linux;
 
-public class LinuxOutputAdapter
+public class LinuxOutputAdapter: ITerminalOutputAdapter
 {
     public LinuxOutputAdapter(TextWriter writer)
     {
@@ -30,12 +31,28 @@ public class LinuxOutputAdapter
         get;
     }
 
+    private class MouseInputHandler: IDisposable
+    {
+        private readonly LinuxOutputAdapter _conOut;
+
+        public MouseInputHandler(LinuxOutputAdapter conOut)
+        {
+            _conOut = conOut;
+        }
+
+        public void Dispose()
+        {
+            _conOut.DisableMouseInput();
+        }
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void EnableMouseInput()
+    public IDisposable EnableMouseInput()
     {
         // Enable mouse tracking sequences
         Write("\x1b[?1000h\x1b[?1003h\x1b[?1006h");
         Flush();
+        return new MouseInputHandler(this);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -1,4 +1,4 @@
-﻿namespace Xobex.Console;
+namespace Xobex.Console;
 
 public readonly struct InputToken
 {

@@ -4,17 +4,18 @@
 // </copyright>
 
 using System.Diagnostics;
+using Xobex.Console.Abstractions;
 
 namespace Xobex.Console;
 
 internal class InputBuffer
 {
-    private readonly LinuxInputAdapter _conIn;
+    private readonly ITerminalInputAdapter _conIn;
     private readonly Queue<InputToken> _queue = new();
     private long _lastReadTime = Stopwatch.GetTimestamp();
     private bool _separatorWritten = true;
 
-    public InputBuffer(LinuxInputAdapter conIn)
+    public InputBuffer(ITerminalInputAdapter conIn)
     {
         _conIn = conIn;
     }

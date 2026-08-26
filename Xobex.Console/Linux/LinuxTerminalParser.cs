@@ -5,23 +5,204 @@
 
 using System.Buffers;
 using System.Text;
+using Xobex.Console.Abstractions;
+using Key = System.ConsoleKey;
+using Mod = System.ConsoleModifiers;
 
-namespace Xobex.Console;
+namespace Xobex.Console.Linux;
 
-internal class LinuxTerminalParser
+#pragma warning disable format
+public class LinuxTerminalParser: ITerminalParser
 {
-    private readonly LinuxInputAdapter _conIn;
+    private static readonly Dictionary<char, (ConsoleKey Key, ConsoleModifiers Mod)> _charToConsoleKey = new()
+    {
+        ['\u0001'] = (Key.A, Mod.Control),
+        ['\u0002'] = (Key.B, Mod.Control),
+        ['\u0003'] = (Key.C, Mod.Control),
+        ['\u0004'] = (Key.D, Mod.Control),
+        ['\u0005'] = (Key.E, Mod.Control),
+        ['\u0006'] = (Key.F, Mod.Control),
+        ['\u0007'] = (Key.G, Mod.Control),
+        ['\u0008'] = (Key.Backspace, Mod.Control),
+        ['\u0009'] = (Key.I, Mod.Control),
+        ['\u000A'] = (Key.J, Mod.Control),
+        ['\u000B'] = (Key.K, Mod.Control),
+        ['\u000C'] = (Key.L, Mod.Control),
+        ['\u000D'] = (Key.Enter, Mod.None),
+        ['\u000E'] = (Key.N, Mod.Control),
+        ['\u000F'] = (Key.O, Mod.Control),
+        ['\u0010'] = (Key.P, Mod.Control),
+        ['\u0011'] = (Key.Q, Mod.Control),
+        ['\u0012'] = (Key.R, Mod.Control),
+        ['\u0013'] = (Key.S, Mod.Control),
+        ['\u0014'] = (Key.T, Mod.Control),
+        ['\u0015'] = (Key.U, Mod.Control),
+        ['\u0016'] = (Key.V, Mod.Control),
+        ['\u0017'] = (Key.W, Mod.Control),
+        ['\u0018'] = (Key.X, Mod.Control),
+        ['\u0019'] = (Key.Y, Mod.Control),
+        ['\u001A'] = (Key.Z, Mod.Control),
+        ['\u001B'] = (Key.Escape, Mod.None),
+        ['\u001C'] = (Key.Oem5, Mod.Control),
+        ['\u001D'] = (Key.Oem6, Mod.Control),
+        ['\u001E'] = (Key.NumPad6, Mod.Control),
+        ['\u001F'] = (Key.Oem2, Mod.Control),
+        ['\u0020'] = (Key.Spacebar, Mod.None),
+        ['-'] = (Key.OemMinus, Mod.None),
+        ['_'] = (Key.OemMinus, Mod.Shift),
+        ['='] = (Key.OemPlus, Mod.None),
+        ['+'] = (Key.OemPlus, Mod.Shift),
+        ['\\'] = (Key.Oem5, Mod.None),
+        ['|'] = (Key.Oem5, Mod.Shift),
+        [']'] = (Key.Oem6, Mod.None),
+        ['}'] = (Key.Oem6, Mod.Shift),
+        ['['] = (Key.Oem4, Mod.None),
+        ['{'] = (Key.Oem4, Mod.Shift),
+        ['\''] = (Key.Oem7, Mod.None),
+        ['\"'] = (Key.Oem7, Mod.Shift),
+        [';'] = (Key.Oem1, Mod.None),
+        [':'] = (Key.Oem1, Mod.Shift),
+        ['/'] = (Key.Oem2, Mod.None),
+        ['?'] = (Key.Oem2, Mod.Shift),
+        ['.'] = (Key.OemPeriod, Mod.None),
+        ['>'] = (Key.OemPeriod, Mod.Shift),
+        [','] = (Key.OemComma, Mod.None),
+        ['<'] = (Key.OemComma, Mod.Shift),
+        ['`'] = (Key.Oem3, Mod.None),
+        ['~'] = (Key.Oem3, Mod.Shift),
+        ['1'] = (Key.D1, Mod.None),
+        ['!'] = (Key.D1, Mod.Shift),
+        ['2'] = (Key.D2, Mod.None),
+        ['@'] = (Key.D2, Mod.Shift),
+        ['3'] = (Key.D3, Mod.None),
+        ['#'] = (Key.D3, Mod.Shift),
+        ['4'] = (Key.D4, Mod.None),
+        ['$'] = (Key.D4, Mod.Shift),
+        ['5'] = (Key.D5, Mod.None),
+        ['%'] = (Key.D5, Mod.Shift),
+        ['6'] = (Key.D6, Mod.None),
+        ['^'] = (Key.D6, Mod.Shift),
+        ['7'] = (Key.D7, Mod.None),
+        ['&'] = (Key.D7, Mod.Shift),
+        ['8'] = (Key.D8, Mod.None),
+        ['*'] = (Key.D8, Mod.Shift),
+        ['9'] = (Key.D9, Mod.None),
+        ['('] = (Key.D9, Mod.Shift),
+        ['0'] = (Key.D0, Mod.None),
+        [')'] = (Key.D0, Mod.Shift),
+        ['\u007F'] = (Key.Backspace, Mod.None),
+    };
+
+    // Final byte of a parameterless CSI sequence (<ESC>[A ...) mapped to a console key.
+    private static readonly Dictionary<char, Key> _csiFinalToConsoleKey = new()
+    {
+        ['A'] = Key.UpArrow,
+        ['B'] = Key.DownArrow,
+        ['C'] = Key.RightArrow,
+        ['D'] = Key.LeftArrow,
+        ['E'] = Key.Clear,
+        ['F'] = Key.End,
+        ['H'] = Key.Home,
+        ['P'] = Key.F1,
+        ['Q'] = Key.F2,
+        ['S'] = Key.F4,
+    };
+
+    // First numeric parameter of a <ESC>[<n>~ sequence mapped to a console key.
+    private static readonly Dictionary<int, ConsoleKey> _csiTildeToConsoleKey = new()
+    {
+        [1] = Key.Home,
+        [2] = Key.Insert,
+        [3] = Key.Delete,
+        [4] = Key.End,
+        [5] = Key.PageUp,
+        [6] = Key.PageDown,
+        [7] = Key.Home,
+        [8] = Key.End,
+        [11] = Key.F1,
+        [12] = Key.F2,
+        [13] = Key.F3,
+        [14] = Key.F4,
+        [15] = Key.F5,
+        [17] = Key.F6,
+        [18] = Key.F7,
+        [19] = Key.F8,
+        [20] = Key.F9,
+        [21] = Key.F10,
+        [23] = Key.F11,
+        [24] = Key.F12,
+    };
+
     private readonly InputBuffer _buffer;
     private byte[] _rawData;
     private int _rawDataPosition;
     private readonly Stack<InputToken> _ungetBuffer = new();
 
-    public LinuxTerminalParser(LinuxInputAdapter conIn)
+    internal LinuxTerminalParser(InputBuffer inputBuffer)
     {
-        _conIn = conIn;
-        _buffer = new InputBuffer(conIn);
+        _buffer = inputBuffer;
         _rawData = new byte[128];
         _rawDataPosition = 0;
+    }
+
+    public bool TryGetInputEvent(out InputEvent? ev)
+    {
+        try
+        {
+            var token = NextToken();
+            var result = true;
+            switch (token.TokenType)
+            {
+                case InputTokenType.Separator:
+                    // Idle timeout marker, not an input event
+                    ev = null;
+                    return false;
+                case InputTokenType.SOH: case InputTokenType.STX: case InputTokenType.ETX: case InputTokenType.EOT:
+                case InputTokenType.ENQ: case InputTokenType.ACK: case InputTokenType.BEL: case InputTokenType.BS:
+                case InputTokenType.HT:  case InputTokenType.LF:  case InputTokenType.VT:  case InputTokenType.FF:
+                case InputTokenType.CR:  case InputTokenType.SO:  case InputTokenType.SI:  case InputTokenType.DLE:
+                case InputTokenType.DC1: case InputTokenType.DC2: case InputTokenType.DC3: case InputTokenType.DC4:
+                case InputTokenType.NAK: case InputTokenType.SYN: case InputTokenType.ETB: case InputTokenType.CAN:
+                case InputTokenType.EM:  case InputTokenType.SUB: case InputTokenType.IS4: case InputTokenType.IS3:
+                case InputTokenType.IS2: case InputTokenType.IS1:
+                    {
+                        ev = CreateKeyEvent((char)token.Ch, Mod.None, GetRawData());
+                        break;
+                    }
+                case InputTokenType.ESC:
+                    result = ParseEscapeSequence(out ev);
+                    break;
+                case InputTokenType.SP:
+                    ev = InputEvent.Create(Key.Spacebar, Mod.None, (char)token.Ch, GetRawData());
+                    break;
+                case InputTokenType.DEL:
+                    ev = InputEvent.Create(Key.Backspace, Mod.None, (char)token.Ch, GetRawData());
+                    break;
+                case InputTokenType.Char8Bit:
+                    result = ParseUtf8Character(token.Ch, Mod.None, out ev);
+                    break;
+                default:
+                    if (token.TokenType == InputTokenType.UpperCase)
+                    {
+                        ev = InputEvent.Create(Key.A + (token.Ch - 'A'), Mod.Shift, (char)token.Ch, GetRawData());
+                    }
+                    else if (token.TokenType == InputTokenType.LowerCase)
+                    {
+                        ev = InputEvent.Create(Key.A + (token.Ch - 'a'), Mod.None, (char)token.Ch, GetRawData());
+                    }
+                    else
+                    {
+                        ev = CreateKeyEvent((char)token.Ch, Mod.None, GetRawData());
+                    }
+                    break;
+            }
+            return result;
+        }
+        finally
+        {
+            // reset raw buffer when exit
+            _rawDataPosition = 0;
+        }
     }
 
     private InputToken NextToken()
@@ -68,194 +249,14 @@ internal class LinuxTerminalParser
         return new ReadOnlySpan<byte>(_rawData, 0, _rawDataPosition);
     }
 
-    // Maps a character to a key event, unmapped characters produce an event with ConsoleKey.None.
+    // Maps a character to a key event, unmapped characters produce an event with Key.None.
     private static InputEvent CreateKeyEvent(char ch, ConsoleModifiers additionalModifiers, ReadOnlySpan<byte> rawData)
     {
         if (_charToConsoleKey.TryGetValue(ch, out var entry))
         {
             return InputEvent.Create(entry.Key, entry.Mod | additionalModifiers, ch, rawData);
         }
-        return InputEvent.Create(ConsoleKey.None, additionalModifiers, ch, rawData);
-    }
-
-    private static readonly Dictionary<char, (ConsoleKey Key, ConsoleModifiers Mod)> _charToConsoleKey = new()
-    {
-        ['\u0001'] = (ConsoleKey.A, ConsoleModifiers.Control),
-        ['\u0002'] = (ConsoleKey.B, ConsoleModifiers.Control),
-        ['\u0003'] = (ConsoleKey.C, ConsoleModifiers.Control),
-        ['\u0004'] = (ConsoleKey.D, ConsoleModifiers.Control),
-        ['\u0005'] = (ConsoleKey.E, ConsoleModifiers.Control),
-        ['\u0006'] = (ConsoleKey.F, ConsoleModifiers.Control),
-        ['\u0007'] = (ConsoleKey.G, ConsoleModifiers.Control),
-        ['\u0008'] = (ConsoleKey.Backspace, ConsoleModifiers.Control),
-        ['\u0009'] = (ConsoleKey.I, ConsoleModifiers.Control),
-        ['\u000A'] = (ConsoleKey.J, ConsoleModifiers.Control),
-        ['\u000B'] = (ConsoleKey.K, ConsoleModifiers.Control),
-        ['\u000C'] = (ConsoleKey.L, ConsoleModifiers.Control),
-        ['\u000D'] = (ConsoleKey.Enter, ConsoleModifiers.None),
-        ['\u000E'] = (ConsoleKey.N, ConsoleModifiers.Control),
-        ['\u000F'] = (ConsoleKey.O, ConsoleModifiers.Control),
-        ['\u0010'] = (ConsoleKey.P, ConsoleModifiers.Control),
-        ['\u0011'] = (ConsoleKey.Q, ConsoleModifiers.Control),
-        ['\u0012'] = (ConsoleKey.R, ConsoleModifiers.Control),
-        ['\u0013'] = (ConsoleKey.S, ConsoleModifiers.Control),
-        ['\u0014'] = (ConsoleKey.T, ConsoleModifiers.Control),
-        ['\u0015'] = (ConsoleKey.U, ConsoleModifiers.Control),
-        ['\u0016'] = (ConsoleKey.V, ConsoleModifiers.Control),
-        ['\u0017'] = (ConsoleKey.W, ConsoleModifiers.Control),
-        ['\u0018'] = (ConsoleKey.X, ConsoleModifiers.Control),
-        ['\u0019'] = (ConsoleKey.Y, ConsoleModifiers.Control),
-        ['\u001A'] = (ConsoleKey.Z, ConsoleModifiers.Control),
-        ['\u001B'] = (ConsoleKey.Escape, ConsoleModifiers.None),
-        ['\u001C'] = (ConsoleKey.Oem5, ConsoleModifiers.Control),
-        ['\u001D'] = (ConsoleKey.Oem6, ConsoleModifiers.Control),
-        ['\u001E'] = (ConsoleKey.NumPad6, ConsoleModifiers.Control),
-        ['\u001F'] = (ConsoleKey.Oem2, ConsoleModifiers.Control),
-        ['\u0020'] = (ConsoleKey.Spacebar, ConsoleModifiers.None),
-        ['-'] = (ConsoleKey.OemMinus, ConsoleModifiers.None),
-        ['_'] = (ConsoleKey.OemMinus, ConsoleModifiers.Shift),
-        ['='] = (ConsoleKey.OemPlus, ConsoleModifiers.None),
-        ['+'] = (ConsoleKey.OemPlus, ConsoleModifiers.Shift),
-        ['\\'] = (ConsoleKey.Oem5, ConsoleModifiers.None),
-        ['|'] = (ConsoleKey.Oem5, ConsoleModifiers.Shift),
-        [']'] = (ConsoleKey.Oem6, ConsoleModifiers.None),
-        ['}'] = (ConsoleKey.Oem6, ConsoleModifiers.Shift),
-        ['['] = (ConsoleKey.Oem4, ConsoleModifiers.None),
-        ['{'] = (ConsoleKey.Oem4, ConsoleModifiers.Shift),
-        ['\''] = (ConsoleKey.Oem7, ConsoleModifiers.None),
-        ['\"'] = (ConsoleKey.Oem7, ConsoleModifiers.Shift),
-        [';'] = (ConsoleKey.Oem1, ConsoleModifiers.None),
-        [':'] = (ConsoleKey.Oem1, ConsoleModifiers.Shift),
-        ['/'] = (ConsoleKey.Oem2, ConsoleModifiers.None),
-        ['?'] = (ConsoleKey.Oem2, ConsoleModifiers.Shift),
-        ['.'] = (ConsoleKey.OemPeriod, ConsoleModifiers.None),
-        ['>'] = (ConsoleKey.OemPeriod, ConsoleModifiers.Shift),
-        [','] = (ConsoleKey.OemComma, ConsoleModifiers.None),
-        ['<'] = (ConsoleKey.OemComma, ConsoleModifiers.Shift),
-        ['`'] = (ConsoleKey.Oem3, ConsoleModifiers.None),
-        ['~'] = (ConsoleKey.Oem3, ConsoleModifiers.Shift),
-        ['1'] = (ConsoleKey.D1, ConsoleModifiers.None),
-        ['!'] = (ConsoleKey.D1, ConsoleModifiers.Shift),
-        ['2'] = (ConsoleKey.D2, ConsoleModifiers.None),
-        ['@'] = (ConsoleKey.D2, ConsoleModifiers.Shift),
-        ['3'] = (ConsoleKey.D3, ConsoleModifiers.None),
-        ['#'] = (ConsoleKey.D3, ConsoleModifiers.Shift),
-        ['4'] = (ConsoleKey.D4, ConsoleModifiers.None),
-        ['$'] = (ConsoleKey.D4, ConsoleModifiers.Shift),
-        ['5'] = (ConsoleKey.D5, ConsoleModifiers.None),
-        ['%'] = (ConsoleKey.D5, ConsoleModifiers.Shift),
-        ['6'] = (ConsoleKey.D6, ConsoleModifiers.None),
-        ['^'] = (ConsoleKey.D6, ConsoleModifiers.Shift),
-        ['7'] = (ConsoleKey.D7, ConsoleModifiers.None),
-        ['&'] = (ConsoleKey.D7, ConsoleModifiers.Shift),
-        ['8'] = (ConsoleKey.D8, ConsoleModifiers.None),
-        ['*'] = (ConsoleKey.D8, ConsoleModifiers.Shift),
-        ['9'] = (ConsoleKey.D9, ConsoleModifiers.None),
-        ['('] = (ConsoleKey.D9, ConsoleModifiers.Shift),
-        ['0'] = (ConsoleKey.D0, ConsoleModifiers.None),
-        [')'] = (ConsoleKey.D0, ConsoleModifiers.Shift),
-        ['\u007F'] = (ConsoleKey.Backspace, ConsoleModifiers.None),
-    };
-
-    // Final byte of a parameterless CSI sequence (<ESC>[A ...) mapped to a console key.
-    private static readonly Dictionary<char, ConsoleKey> _csiFinalToConsoleKey = new()
-    {
-        ['A'] = ConsoleKey.UpArrow,
-        ['B'] = ConsoleKey.DownArrow,
-        ['C'] = ConsoleKey.RightArrow,
-        ['D'] = ConsoleKey.LeftArrow,
-        ['E'] = ConsoleKey.Clear,
-        ['F'] = ConsoleKey.End,
-        ['H'] = ConsoleKey.Home,
-        ['P'] = ConsoleKey.F1,
-        ['Q'] = ConsoleKey.F2,
-        ['S'] = ConsoleKey.F4,
-    };
-
-    // First numeric parameter of a <ESC>[<n>~ sequence mapped to a console key.
-    private static readonly Dictionary<int, ConsoleKey> _csiTildeToConsoleKey = new()
-    {
-        [1] = ConsoleKey.Home,
-        [2] = ConsoleKey.Insert,
-        [3] = ConsoleKey.Delete,
-        [4] = ConsoleKey.End,
-        [5] = ConsoleKey.PageUp,
-        [6] = ConsoleKey.PageDown,
-        [7] = ConsoleKey.Home,
-        [8] = ConsoleKey.End,
-        [11] = ConsoleKey.F1,
-        [12] = ConsoleKey.F2,
-        [13] = ConsoleKey.F3,
-        [14] = ConsoleKey.F4,
-        [15] = ConsoleKey.F5,
-        [17] = ConsoleKey.F6,
-        [18] = ConsoleKey.F7,
-        [19] = ConsoleKey.F8,
-        [20] = ConsoleKey.F9,
-        [21] = ConsoleKey.F10,
-        [23] = ConsoleKey.F11,
-        [24] = ConsoleKey.F12,
-    };
-
-    #pragma warning disable format
-    public bool TryGetInputEvent(out InputEvent? ev)
-    {
-        try
-        {
-            var token = NextToken();
-            var result = true;
-            switch (token.TokenType)
-            {
-                case InputTokenType.Separator:
-                    // Idle timeout marker, not an input event
-                    ev = null;
-                    return false;
-                case InputTokenType.SOH: case InputTokenType.STX: case InputTokenType.ETX: case InputTokenType.EOT:
-                case InputTokenType.ENQ: case InputTokenType.ACK: case InputTokenType.BEL: case InputTokenType.BS:
-                case InputTokenType.HT:  case InputTokenType.LF:  case InputTokenType.VT:  case InputTokenType.FF:
-                case InputTokenType.CR:  case InputTokenType.SO:  case InputTokenType.SI:  case InputTokenType.DLE:
-                case InputTokenType.DC1: case InputTokenType.DC2: case InputTokenType.DC3: case InputTokenType.DC4:
-                case InputTokenType.NAK: case InputTokenType.SYN: case InputTokenType.ETB: case InputTokenType.CAN:
-                case InputTokenType.EM:  case InputTokenType.SUB: case InputTokenType.IS4: case InputTokenType.IS3:
-                case InputTokenType.IS2: case InputTokenType.IS1:
-                    {
-                        ev = CreateKeyEvent((char)token.Ch, ConsoleModifiers.None, GetRawData());
-                        break;
-                    }
-                case InputTokenType.ESC:
-                    result = ParseEscapeSequence(out ev);
-                    break;
-                case InputTokenType.SP:
-                    ev = InputEvent.Create(ConsoleKey.Spacebar, ConsoleModifiers.None, (char)token.Ch, GetRawData());
-                    break;
-                case InputTokenType.DEL:
-                    ev = InputEvent.Create(ConsoleKey.Backspace, ConsoleModifiers.None, (char)token.Ch, GetRawData());
-                    break;
-                case InputTokenType.Char8Bit:
-                    result = ParseUtf8Character(token.Ch, ConsoleModifiers.None, out ev);
-                    break;
-                default:
-                    if (token.TokenType == InputTokenType.UpperCase)
-                    {
-                        ev = InputEvent.Create(ConsoleKey.A + (token.Ch - 'A'), ConsoleModifiers.Shift, (char)token.Ch, GetRawData());
-                    }
-                    else if (token.TokenType == InputTokenType.LowerCase)
-                    {
-                        ev = InputEvent.Create(ConsoleKey.A + (token.Ch - 'a'), ConsoleModifiers.None, (char)token.Ch, GetRawData());
-                    }
-                    else
-                    {
-                        ev = CreateKeyEvent((char)token.Ch, ConsoleModifiers.None, GetRawData());
-                    }
-                    break;
-            }
-            return result;
-        }
-        finally
-        {
-            // reset raw buffer when exit
-            _rawDataPosition = 0;
-        }
+        return InputEvent.Create(Key.None, additionalModifiers, ch, rawData);
     }
 
     private bool ParseEscapeSequence(out InputEvent? ev)
@@ -265,7 +266,7 @@ internal class LinuxTerminalParser
         switch(token.TokenType)
         {
             case InputTokenType.Separator:
-                ev = InputEvent.Create(ConsoleKey.Escape, ConsoleModifiers.None, (char)token.Ch, GetRawData());
+                ev = InputEvent.Create(Key.Escape, Mod.None, (char)token.Ch, GetRawData());
                 return true;
             case InputTokenType.SOH: case InputTokenType.STX: case InputTokenType.ETX: case InputTokenType.EOT:
             case InputTokenType.ENQ: case InputTokenType.ACK: case InputTokenType.BEL: case InputTokenType.BS:
@@ -277,11 +278,11 @@ internal class LinuxTerminalParser
             case InputTokenType.IS2: case InputTokenType.IS1:
                 {
                     (var key, var mod) = _charToConsoleKey[(char)token.Ch];
-                    ev = InputEvent.Create(key, mod | ConsoleModifiers.Alt, '\u0000', GetRawData());
+                    ev = InputEvent.Create(key, mod | Mod.Alt, '\u0000', GetRawData());
                     break;
                 }
             case InputTokenType.ESC:
-                ev = InputEvent.Create(ConsoleKey.Oem4, ConsoleModifiers.Alt | ConsoleModifiers.Control, '\u0000', GetRawData());
+                ev = InputEvent.Create(Key.Oem4, Mod.Alt | Mod.Control, '\u0000', GetRawData());
                 break;
             default:
                 switch((char)token.Ch)
@@ -301,20 +302,20 @@ internal class LinuxTerminalParser
                     default:
                         if (token.TokenType == InputTokenType.UpperCase)
                         {
-                            ev = InputEvent.Create(ConsoleKey.A + (token.Ch - 'A'), ConsoleModifiers.Alt | ConsoleModifiers.Shift, '\u0000', GetRawData());
+                            ev = InputEvent.Create(Key.A + (token.Ch - 'A'), Mod.Alt | Mod.Shift, '\u0000', GetRawData());
                         }
                         else if (token.TokenType == InputTokenType.LowerCase)
                         {
-                            ev = InputEvent.Create(ConsoleKey.A + (token.Ch - 'a'), ConsoleModifiers.Alt, '\u0000', GetRawData());
+                            ev = InputEvent.Create(Key.A + (token.Ch - 'a'), Mod.Alt, '\u0000', GetRawData());
                         }
                         else if (token.TokenType == InputTokenType.Char8Bit)
                         {
                             // Alt plus a multi byte UTF-8 character
-                            result = ParseUtf8Character(token.Ch, ConsoleModifiers.Alt, out ev);
+                            result = ParseUtf8Character(token.Ch, Mod.Alt, out ev);
                         }
                         else
                         {
-                            ev = CreateKeyEvent((char)token.Ch, ConsoleModifiers.Alt, GetRawData());
+                            ev = CreateKeyEvent((char)token.Ch, Mod.Alt, GetRawData());
                         }
                         break;
                 }
@@ -329,7 +330,7 @@ internal class LinuxTerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(ConsoleKey.Oem6, ConsoleModifiers.Alt, '\u0000', GetRawData());
+            ev = InputEvent.Create(Key.Oem6, Mod.Alt, '\u0000', GetRawData());
             return true;
         }
         UngetToken(token);
@@ -365,7 +366,7 @@ internal class LinuxTerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(ConsoleKey.Oem4, ConsoleModifiers.Alt, '\u0000', GetRawData());
+            ev = InputEvent.Create(Key.Oem4, Mod.Alt, '\u0000', GetRawData());
             return true;
         }
         if ((char)token.Ch == '<')
@@ -386,12 +387,12 @@ internal class LinuxTerminalParser
             return ParseX10MouseSequence(out ev);
         }
         ConsoleKey key;
-        var modifiers = ConsoleModifiers.None;
+        var modifiers = Mod.None;
         if (finalChar == 'Z')
         {
             // <ESC>[Z is back tab
-            key = ConsoleKey.Tab;
-            modifiers = ConsoleModifiers.Shift;
+            key = Key.Tab;
+            modifiers = Mod.Shift;
         }
         else if (finalChar == '~' && parameters.Count > 0)
         {
@@ -400,11 +401,11 @@ internal class LinuxTerminalParser
                 ev = null;
                 return false;
             }
-            modifiers = parameters.Count > 1 ? GetModifiers(parameters[1]) : ConsoleModifiers.None;
+            modifiers = parameters.Count > 1 ? GetModifiers(parameters[1]) : Mod.None;
         }
         else if (_csiFinalToConsoleKey.TryGetValue(finalChar, out key))
         {
-            modifiers = parameters.Count > 1 ? GetModifiers(parameters[1]) : ConsoleModifiers.None;
+            modifiers = parameters.Count > 1 ? GetModifiers(parameters[1]) : Mod.None;
         }
         else
         {
@@ -449,18 +450,18 @@ internal class LinuxTerminalParser
     private static ConsoleModifiers GetModifiers(int parameter)
     {
         var value = Math.Max(parameter, 1) - 1;
-        var modifiers = ConsoleModifiers.None;
+        var modifiers = Mod.None;
         if ((value & 0x01) != 0)
         {
-            modifiers |= ConsoleModifiers.Shift;
+            modifiers |= Mod.Shift;
         }
         if ((value & 0x02) != 0)
         {
-            modifiers |= ConsoleModifiers.Alt;
+            modifiers |= Mod.Alt;
         }
         if ((value & 0x04) != 0)
         {
-            modifiers |= ConsoleModifiers.Control;
+            modifiers |= Mod.Control;
         }
         return modifiers;
     }
@@ -522,18 +523,18 @@ internal class LinuxTerminalParser
         {
             return false;
         }
-        var modifiers = ConsoleModifiers.None;
+        var modifiers = Mod.None;
         if ((code & 0x04) != 0)
         {
-            modifiers |= ConsoleModifiers.Shift;
+            modifiers |= Mod.Shift;
         }
         if ((code & 0x08) != 0)
         {
-            modifiers |= ConsoleModifiers.Alt;
+            modifiers |= Mod.Alt;
         }
         if ((code & 0x10) != 0)
         {
-            modifiers |= ConsoleModifiers.Control;
+            modifiers |= Mod.Control;
         }
         var buttonIndex = code & 0x03;
         var button = buttonIndex switch
@@ -546,8 +547,8 @@ internal class LinuxTerminalParser
         MouseAction action;
         if ((code & 0x40) != 0)
         {
-            button = (MouseButton)((int)MouseButton.WheelUp + buttonIndex);
-            action = MouseAction.Down;
+            action = (MouseAction)((int)MouseAction.WheelUp + buttonIndex);
+            button = MouseButton.None;
         }
         else if (released)
         {
@@ -578,7 +579,7 @@ internal class LinuxTerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(ConsoleKey.P, ConsoleModifiers.Alt, '\u0000', GetRawData());
+            ev = InputEvent.Create(Key.P, Mod.Alt, '\u0000', GetRawData());
             return true;
         }
         UngetToken(token);
@@ -594,48 +595,48 @@ internal class LinuxTerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(ConsoleKey.O, ConsoleModifiers.Alt | ConsoleModifiers.Shift, '\u0000', GetRawData());
+            ev = InputEvent.Create(Key.O, Mod.Alt | Mod.Shift, '\u0000', GetRawData());
         }
         else
         {
             switch((char)token.Ch)
             {
                 case 'A':
-                    ev = InputEvent.Create(ConsoleKey.UpArrow, ConsoleModifiers.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.UpArrow, Mod.None, '\u0000', GetRawData());
                     break;
                 case 'B':
-                    ev = InputEvent.Create(ConsoleKey.DownArrow, ConsoleModifiers.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.DownArrow, Mod.None, '\u0000', GetRawData());
                     break;
                 case 'C':
-                    ev = InputEvent.Create(ConsoleKey.RightArrow, ConsoleModifiers.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.RightArrow, Mod.None, '\u0000', GetRawData());
                     break;
                 case 'D':
-                    ev = InputEvent.Create(ConsoleKey.LeftArrow, ConsoleModifiers.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.LeftArrow, Mod.None, '\u0000', GetRawData());
                     break;
                 case 'E':
-                    ev = InputEvent.Create(ConsoleKey.Clear, ConsoleModifiers.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.Clear, Mod.None, '\u0000', GetRawData());
                     break;
                 case 'F':
-                    ev = InputEvent.Create(ConsoleKey.End, ConsoleModifiers.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.End, Mod.None, '\u0000', GetRawData());
                     break;
                 case 'H':
-                    ev = InputEvent.Create(ConsoleKey.Home, ConsoleModifiers.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.Home, Mod.None, '\u0000', GetRawData());
                     break;
                 case 'P':
-                    ev = InputEvent.Create(ConsoleKey.F1, ConsoleModifiers.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.F1, Mod.None, '\u0000', GetRawData());
                     break;
                 case 'Q':
-                    ev = InputEvent.Create(ConsoleKey.F2, ConsoleModifiers.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.F2, Mod.None, '\u0000', GetRawData());
                     break;
                 case 'R':
-                    ev = InputEvent.Create(ConsoleKey.F3, ConsoleModifiers.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.F3, Mod.None, '\u0000', GetRawData());
                     break;
                 case 'S':
-                    ev = InputEvent.Create(ConsoleKey.F4, ConsoleModifiers.None, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.F4, Mod.None, '\u0000', GetRawData());
                     break;
                 default:
                     UngetToken(token);
-                    ev = InputEvent.Create(ConsoleKey.O, ConsoleModifiers.Alt | ConsoleModifiers.Shift, '\u0000', GetRawData());
+                    ev = InputEvent.Create(Key.O, Mod.Alt | Mod.Shift, '\u0000', GetRawData());
                     break;
             }
         }
@@ -669,7 +670,7 @@ internal class LinuxTerminalParser
             ev = null;
             return false;
         }
-        ev = InputEvent.Create(ConsoleKey.None, modifiers, (char)rune.Value, GetRawData());
+        ev = InputEvent.Create(Key.None, modifiers, (char)rune.Value, GetRawData());
         return true;
     }
 
@@ -684,6 +685,5 @@ internal class LinuxTerminalParser
             _ => 0,
         };
     }
-
-#pragma warning restore format
 }
+#pragma warning restore format

@@ -4,48 +4,44 @@
 // </copyright>
 
 using System.Runtime.InteropServices;
+using Xobex.Console.Abstractions;
 using static Xobex.Console.LinuxNative;
 
-namespace Xobex.Console;
+namespace Xobex.Console.Linux;
 
 /// <summary>
 /// LinuxInputAdapter class
 /// </summary>
-public unsafe class LinuxInputAdapter : IDisposable
+public unsafe class LinuxInputAdapter : ITerminalInputAdapter
 {
     private termios _original;
     private bool _rawMode;
 
-    private LinuxInputAdapter(LinuxOutputAdapter conOut)
+    private LinuxInputAdapter()
     {
-        Out = conOut;
     }
 
     /// <summary>
     /// Creates new instance of a <see cref="LinuxInputAdapter"/>
     /// </summary>
-    /// <param name="conOut"></param>
+    /// <param name="conOut">Must be not null to enable mouse input evens</param>
     /// <returns></returns>
-    public static LinuxInputAdapter Create(LinuxOutputAdapter conOut)
+    public static LinuxInputAdapter Create()
     {
-        var conIn = new LinuxInputAdapter(conOut);
+        var conIn = new LinuxInputAdapter();
         conIn.EnableRawMode();
-        try
-        {
-            conOut.EnableMouseInput();
-            return conIn;
-        }
-        catch
-        {
-            conIn.RestoreCanonicalMode();
-            throw;
-        }
+        return conIn;
+    }
+
+    public ITerminalParser CreateParser()
+    {
+        return new LinuxTerminalParser(new InputBuffer(this));
     }
 
     /// <summary>
     /// Gets Out adapters
     /// </summary>
-    public LinuxOutputAdapter Out { get; }
+    private LinuxOutputAdapter? Out { get; set; }
 
     /// <summary>
     /// Determines whether user input is available
@@ -129,7 +125,7 @@ public unsafe class LinuxInputAdapter : IDisposable
     {
         try
         {
-            Out.DisableMouseInput();
+            Out?.DisableMouseInput();
         }
         finally
         {

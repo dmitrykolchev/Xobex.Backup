@@ -3,6 +3,9 @@
 // See LICENSE in the project root for license information
 // </copyright>
 
+using Xobex.Console.Abstractions;
+using Xobex.Console.Linux;
+
 namespace Xobex.Console;
 
 internal class Program
@@ -20,11 +23,10 @@ internal class Program
         else
         {
 
-            var conOut = LinuxOutputAdapter.Create();
-            using var conIn = LinuxInputAdapter.Create(conOut);
-            var buffer = new InputBuffer(conIn);
-
-            var terminalParser = new LinuxTerminalParser(conIn);
+            ITerminalOutputAdapter conOut = LinuxOutputAdapter.Create();
+            using ITerminalInputAdapter conIn = LinuxInputAdapter.Create();
+            using var mouse = conOut.EnableMouseInput();
+            var terminalParser = conIn.CreateParser();
 
             for (; ; )
             {

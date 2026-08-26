@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 
 namespace Xobex.Console;
 
@@ -14,7 +14,11 @@ public enum MouseAction
 {
     Down,
     Up,
-    Move
+    Move,
+    WheelUp,
+    WheelDown,
+    WheelLeft,
+    WheelRight
 }
 
 public enum MouseButton
@@ -22,11 +26,7 @@ public enum MouseButton
     None,
     Left,
     Middle,
-    Right,
-    WheelUp,
-    WheelDown,
-    WheelLeft,
-    WheelRight
+    Right
 }
 
 public class InputEvent
