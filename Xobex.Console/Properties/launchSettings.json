@@ -2,6 +2,13 @@
   "profiles": {
     "Xobex.Console": {
       "commandName": "Project"
+    },
+    "Xobex.Console (MacOS)": {
+      "commandName": "Project",
+      "remoteDebugEnabled": true,
+      "remoteDebugMachine": "mac-dyk",
+      "authenticationMode": "None",
+      "remoteHostTarget": "osx-arm64"
     }
   }
 }
