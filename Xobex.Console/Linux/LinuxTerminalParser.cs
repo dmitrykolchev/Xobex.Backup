@@ -582,7 +582,8 @@ public class LinuxTerminalParser: ITerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(Key.P, Mod.Alt, (char)token.Ch, true, GetRawData());
+            var rawData = GetRawData();
+            ev = InputEvent.Create(Key.P, Mod.Alt | Mod.Shift, (char)rawData[^1], true, rawData);
             return true;
         }
         UngetToken(token);
