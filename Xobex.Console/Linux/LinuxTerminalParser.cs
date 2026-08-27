@@ -25,7 +25,7 @@ public class LinuxTerminalParser: ITerminalParser
         ['\u0007'] = (Key.G, Mod.Control),
         ['\u0008'] = (Key.Backspace, Mod.Control),
         ['\u0009'] = (Key.Tab, Mod.None),
-        ['\u000A'] = (Key.J, Mod.Control),
+        ['\u000A'] = (Key.Enter, Mod.Control),
         ['\u000B'] = (Key.K, Mod.Control),
         ['\u000C'] = (Key.L, Mod.Control),
         ['\u000D'] = (Key.Enter, Mod.None),
@@ -278,11 +278,11 @@ public class LinuxTerminalParser: ITerminalParser
             case InputTokenType.IS2: case InputTokenType.IS1:
                 {
                     (var key, var mod) = _charToConsoleKey[(char)token.Ch];
-                    ev = InputEvent.Create(key, mod | Mod.Alt, '\u0000', true, GetRawData());
+                    ev = InputEvent.Create(key, mod | Mod.Alt, (char)token.Ch, true, GetRawData());
                     break;
                 }
             case InputTokenType.ESC:
-                ev = InputEvent.Create(Key.Oem4, Mod.Alt | Mod.Control, '\u0000', true, GetRawData());
+                ev = InputEvent.Create(Key.Escape, Mod.Alt, (char)token.Ch, true, GetRawData());
                 break;
             default:
                 switch((char)token.Ch)
@@ -302,11 +302,11 @@ public class LinuxTerminalParser: ITerminalParser
                     default:
                         if (token.TokenType == InputTokenType.UpperCase)
                         {
-                            ev = InputEvent.Create(Key.A + (token.Ch - 'A'), Mod.Alt | Mod.Shift, '\u0000', true, GetRawData());
+                            ev = InputEvent.Create(Key.A + (token.Ch - 'A'), Mod.Alt | Mod.Shift, (char)token.Ch, true, GetRawData());
                         }
                         else if (token.TokenType == InputTokenType.LowerCase)
                         {
-                            ev = InputEvent.Create(Key.A + (token.Ch - 'a'), Mod.Alt, '\u0000', true, GetRawData());
+                            ev = InputEvent.Create(Key.A + (token.Ch - 'a'), Mod.Alt, (char)token.Ch, true, GetRawData());
                         }
                         else if (token.TokenType == InputTokenType.Char8Bit)
                         {
@@ -330,7 +330,7 @@ public class LinuxTerminalParser: ITerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(Key.Oem6, Mod.Alt, '\u0000', true, GetRawData());
+            ev = InputEvent.Create(Key.Oem6, Mod.Alt, (char)token.Ch, true, GetRawData());
             return true;
         }
         UngetToken(token);
@@ -366,7 +366,7 @@ public class LinuxTerminalParser: ITerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(Key.Oem4, Mod.Alt, '\u0000', true, GetRawData());
+            ev = InputEvent.Create(Key.Escape, Mod.Alt, (char)token.Ch, true, GetRawData());
             return true;
         }
         if ((char)token.Ch == '<')
@@ -413,7 +413,7 @@ public class LinuxTerminalParser: ITerminalParser
             ev = null;
             return false;
         }
-        ev = InputEvent.Create(key, modifiers, '\u0000', true, GetRawData());
+        ev = InputEvent.Create(key, modifiers, (char)token.Ch, true, GetRawData());
         return true;
     }
 
@@ -579,7 +579,7 @@ public class LinuxTerminalParser: ITerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(Key.P, Mod.Alt, '\u0000', true, GetRawData());
+            ev = InputEvent.Create(Key.P, Mod.Alt, (char)token.Ch, true, GetRawData());
             return true;
         }
         UngetToken(token);
@@ -595,7 +595,7 @@ public class LinuxTerminalParser: ITerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(Key.O, Mod.Alt | Mod.Shift, '\u0000', true, GetRawData());
+            ev = InputEvent.Create(Key.O, Mod.Alt | Mod.Shift, (char)token.Ch, true, GetRawData());
         }
         else
         {
@@ -636,7 +636,7 @@ public class LinuxTerminalParser: ITerminalParser
                     break;
                 default:
                     UngetToken(token);
-                    ev = InputEvent.Create(Key.O, Mod.Alt | Mod.Shift, '\u0000', true, GetRawData());
+                    ev = InputEvent.Create(Key.O, Mod.Alt | Mod.Shift, (char)token.Ch, true, GetRawData());
                     break;
             }
         }
