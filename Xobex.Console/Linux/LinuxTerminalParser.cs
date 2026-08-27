@@ -266,7 +266,8 @@ public class LinuxTerminalParser: ITerminalParser
         switch(token.TokenType)
         {
             case InputTokenType.Separator:
-                ev = InputEvent.Create(Key.Escape, Mod.None, (char)token.Ch, true, GetRawData());
+                var rawData = GetRawData();
+                ev = InputEvent.Create(Key.Escape, Mod.None, (char)rawData[^1], true, rawData);
                 return true;
             case InputTokenType.SOH: case InputTokenType.STX: case InputTokenType.ETX: case InputTokenType.EOT:
             case InputTokenType.ENQ: case InputTokenType.ACK: case InputTokenType.BEL: case InputTokenType.BS:
@@ -330,7 +331,8 @@ public class LinuxTerminalParser: ITerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(Key.Oem6, Mod.Alt, (char)token.Ch, true, GetRawData());
+            var rawData = GetRawData();
+            ev = InputEvent.Create(Key.Oem6, Mod.Alt, (char)rawData[^1], true, rawData);
             return true;
         }
         UngetToken(token);
@@ -366,7 +368,8 @@ public class LinuxTerminalParser: ITerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(Key.Oem4, Mod.Alt, '\u0000', true, GetRawData());
+            var rawData = GetRawData();
+            ev = InputEvent.Create(Key.Oem4, Mod.Alt, (char)rawData[^1], true, rawData);
             return true;
         }
         if ((char)token.Ch == '<')
@@ -595,7 +598,8 @@ public class LinuxTerminalParser: ITerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(Key.O, Mod.Alt | Mod.Shift, (char)token.Ch, true, GetRawData());
+            var rawData = GetRawData();
+            ev = InputEvent.Create(Key.O, Mod.Alt | Mod.Shift, (char)rawData[^1], true, rawData);
         }
         else
         {
