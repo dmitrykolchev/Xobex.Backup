@@ -21,7 +21,7 @@ public class WindowsOutputAdapter : TerminalOutputAdapter
             _prevMode = mode;
             mode |= CONSOLE_MODE.ENABLE_VIRTUAL_TERMINAL_PROCESSING;
             mode |= CONSOLE_MODE.DISABLE_NEWLINE_AUTO_RETURN;
-            mode &= ~CONSOLE_MODE.ENABLE_WRAP_AT_EOL_OUTPUT;
+            //mode &= ~CONSOLE_MODE.ENABLE_WRAP_AT_EOL_OUTPUT;
             SetConsoleMode(hOut, mode);
         }
     }
