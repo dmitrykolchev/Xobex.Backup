@@ -25,7 +25,7 @@ public class LinuxTerminalParser: ITerminalParser
         ['\u0007'] = (Key.G, Mod.Control),
         ['\u0008'] = (Key.Backspace, Mod.Control),
         ['\u0009'] = (Key.Tab, Mod.None),
-        ['\u000A'] = (Key.Enter, Mod.Control),
+        ['\u000A'] = (Key.Enter, Mod.None),
         ['\u000B'] = (Key.K, Mod.Control),
         ['\u000C'] = (Key.L, Mod.Control),
         ['\u000D'] = (Key.Enter, Mod.None),
