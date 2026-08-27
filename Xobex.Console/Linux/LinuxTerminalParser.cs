@@ -366,7 +366,7 @@ public class LinuxTerminalParser: ITerminalParser
         var token = NextToken();
         if (token.TokenType == InputTokenType.Separator)
         {
-            ev = InputEvent.Create(Key.Escape, Mod.Alt, (char)token.Ch, true, GetRawData());
+            ev = InputEvent.Create(Key.Oem4, Mod.Alt, '\u0000', true, GetRawData());
             return true;
         }
         if ((char)token.Ch == '<')
