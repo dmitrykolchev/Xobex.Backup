@@ -607,41 +607,42 @@ public class LinuxTerminalParser: ITerminalParser
             switch((char)token.Ch)
             {
                 case 'A':
-                    ev = InputEvent.Create(Key.UpArrow, Mod.None, '\u0000', true, GetRawData());
+                    ev = InputEvent.Create(Key.UpArrow, Mod.None, (char)token.Ch, true, GetRawData());
                     break;
                 case 'B':
-                    ev = InputEvent.Create(Key.DownArrow, Mod.None, '\u0000', true, GetRawData());
+                    ev = InputEvent.Create(Key.DownArrow, Mod.None, (char)token.Ch, true, GetRawData());
                     break;
                 case 'C':
-                    ev = InputEvent.Create(Key.RightArrow, Mod.None, '\u0000', true, GetRawData());
+                    ev = InputEvent.Create(Key.RightArrow, Mod.None, (char)token.Ch, true, GetRawData());
                     break;
                 case 'D':
-                    ev = InputEvent.Create(Key.LeftArrow, Mod.None, '\u0000', true, GetRawData());
+                    ev = InputEvent.Create(Key.LeftArrow, Mod.None, (char)token.Ch, true, GetRawData());
                     break;
                 case 'E':
-                    ev = InputEvent.Create(Key.Clear, Mod.None, '\u0000', true, GetRawData());
+                    ev = InputEvent.Create(Key.Clear, Mod.None, (char)token.Ch, true, GetRawData());
                     break;
                 case 'F':
-                    ev = InputEvent.Create(Key.End, Mod.None, '\u0000', true, GetRawData());
+                    ev = InputEvent.Create(Key.End, Mod.None, (char)token.Ch, true, GetRawData());
                     break;
                 case 'H':
-                    ev = InputEvent.Create(Key.Home, Mod.None, '\u0000', true, GetRawData());
+                    ev = InputEvent.Create(Key.Home, Mod.None, (char)token.Ch, true, GetRawData());
                     break;
                 case 'P':
-                    ev = InputEvent.Create(Key.F1, Mod.None, '\u0000', true, GetRawData());
+                    ev = InputEvent.Create(Key.F1, Mod.None, (char)token.Ch, true, GetRawData());
                     break;
                 case 'Q':
-                    ev = InputEvent.Create(Key.F2, Mod.None, '\u0000', true, GetRawData());
+                    ev = InputEvent.Create(Key.F2, Mod.None, (char)token.Ch, true, GetRawData());
                     break;
                 case 'R':
-                    ev = InputEvent.Create(Key.F3, Mod.None, '\u0000', true, GetRawData());
+                    ev = InputEvent.Create(Key.F3, Mod.None, (char)token.Ch, true, GetRawData());
                     break;
                 case 'S':
-                    ev = InputEvent.Create(Key.F4, Mod.None, '\u0000', true, GetRawData());
+                    ev = InputEvent.Create(Key.F4, Mod.None, (char)token.Ch, true, GetRawData());
                     break;
                 default:
                     UngetToken(token);
-                    ev = InputEvent.Create(Key.O, Mod.Alt | Mod.Shift, (char)token.Ch, true, GetRawData());
+                    var rawData = GetRawData();
+                    ev = InputEvent.Create(Key.O, Mod.Alt | Mod.Shift, (char)rawData[^1], true, rawData);
                     break;
             }
         }
