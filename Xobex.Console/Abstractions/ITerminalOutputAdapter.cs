@@ -5,10 +5,12 @@
 
 namespace Xobex.Console.Abstractions;
 
-public interface ITerminalOutputAdapter: IDisposable
+public interface ITerminalOutputAdapter : IDisposable
 {
     int Width { get; }
+
     int Height { get; }
+
     void Write(char ch);
 
     void Write(string text);
@@ -19,9 +21,15 @@ public interface ITerminalOutputAdapter: IDisposable
 
     void Flush();
 
-    void SetForeColor(Color color);
+    void SetColor(TerminalColor bg, TerminalColor fg);
 
-    void SetBackColor(Color color);
+    void SetForeColor(TerminalColor fg);
+
+    void SetBackColor(TerminalColor bg);
+
+    void SetForeColor(Color fg);
+
+    void SetBackColor(Color bg);
 
     void SaveCursorPosition();
 

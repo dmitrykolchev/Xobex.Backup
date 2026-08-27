@@ -25,11 +25,21 @@ internal class Program
                 conOut.WriteLine($"Terminal size changed: {conOut.Width}x{conOut.Height}");
                 conOut.Flush();
             };
-            conOut.SetCursorPosition(20, 20);
-            conOut.SetTextStyle(TextStyle.Underline);
-            conOut.Write("Hello World");
+            conOut.AlternateScreen(true);
+            conOut.SetCursorPosition(0, 0);
+            for (var b = TerminalColor.Black; b <= TerminalColor.White; ++b)
+            {
+                for (var f = TerminalColor.Black; f <= TerminalColor.White; ++f)
+                {
+                    conOut.SetColor(b, f);
+                    conOut.Write(" ■");
+                }
+                conOut.WriteLine(" ");
+            }
+            conOut.Write("\e[0m");
             conOut.Flush();
             ProcessConsoleEvents(conIn, conOut);
+            conOut.AlternateScreen(false);
         }
         else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
         {

@@ -15,6 +15,7 @@ public abstract class TerminalOutputAdapter : ITerminalOutputAdapter
     protected TerminalOutputAdapter(TextWriter writer)
     {
         Writer = writer;
+        DisableWrap();
     }
 
     public int Width => System.Console.WindowWidth;
@@ -63,6 +64,24 @@ public abstract class TerminalOutputAdapter : ITerminalOutputAdapter
     public void SetBackColor(Color color)
     {
         Write($"\x1b[48;2;{color.R};{color.G};{color.B}m");
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void SetColor(TerminalColor bg, TerminalColor fg)
+    {
+        Write($"\e[{(fg > TerminalColor.Gray ? (int)fg + 82 : (int)fg + 30)};{(bg > TerminalColor.Gray ? (int)bg + 92 : (int)bg + 40)}m");
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void SetForeColor(TerminalColor fg)
+    {
+        Write($"\e[{(fg > TerminalColor.Gray ? (int)fg + 82 : (int)fg + 30)}m");
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void SetBackColor(TerminalColor bg)
+    {
+        Write($"\e[{(bg > TerminalColor.Gray ? (int)bg + 92 : (int)bg + 40)}m");
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
