@@ -57,31 +57,31 @@ public abstract class TerminalOutputAdapter : ITerminalOutputAdapter
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void SetForeColor(Color color)
     {
-        Write($"\x1b[38;2;{color.R};{color.G};{color.B}m");
+        Write(Escapes.SetForeColor(color));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void SetBackColor(Color color)
     {
-        Write($"\x1b[48;2;{color.R};{color.G};{color.B}m");
+        Write(Escapes.SetBackColor(color));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void SetColor(TerminalColor bg, TerminalColor fg)
     {
-        Write($"\e[{(fg > TerminalColor.Gray ? (int)fg + 82 : (int)fg + 30)};{(bg > TerminalColor.Gray ? (int)bg + 92 : (int)bg + 40)}m");
+        Write(Escapes.SetColor(bg, fg));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void SetForeColor(TerminalColor fg)
     {
-        Write($"\e[{(fg > TerminalColor.Gray ? (int)fg + 82 : (int)fg + 30)}m");
+        Write(Escapes.SetForeColor(fg));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void SetBackColor(TerminalColor bg)
     {
-        Write($"\e[{(bg > TerminalColor.Gray ? (int)bg + 92 : (int)bg + 40)}m");
+        Write(Escapes.SetBackColor(bg));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -135,31 +135,31 @@ public abstract class TerminalOutputAdapter : ITerminalOutputAdapter
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void SetCursorPosition(int x, int y)
     {
-        Write($"\x1b[{y};{x}H");
+        Write(Escapes.SetCursorPosition(x, y));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void MoveCursorUp(int rows)
     {
-        Write($"\x1b[{rows}A");
+        Write(Escapes.MoveCursorUp(rows));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void MoveCursorDown(int rows)
     {
-        Write($"\x1b[{rows}B");
+        Write(Escapes.MoveCursorDown(rows));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void MoveCursorRight(int cols)
     {
-        Write($"\x1b[{cols}C");
+        Write(Escapes.MoveCursorRight(cols));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void MoveCursorLeft(int cols)
     {
-        Write($"\x1b[{cols}D");
+        Write(Escapes.MoveCursorLeft(cols));
     }
 
     public void AlternateScreen(bool on)
