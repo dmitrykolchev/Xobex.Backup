@@ -9,6 +9,8 @@ namespace Xobex.Console;
 
 public static class Escapes
 {
+    public static readonly string EnableMouseInput = "\e[?1000h\e[?1003h\e[?1006h";
+    public static readonly string DisableMouseInput = "\e[?1000l\e[?1003l\e[?1006l";
     public static readonly string HideCursor = "\e[?25l";
     public static readonly string ShowCursor = "\e[?25h";
     public static readonly string DisableWrap = "\e[?7l";

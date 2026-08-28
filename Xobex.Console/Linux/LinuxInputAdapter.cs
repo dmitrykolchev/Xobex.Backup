@@ -39,7 +39,7 @@ public unsafe class LinuxInputAdapter : ITerminalInputAdapter
     public IDisposable EnableMouseInput()
     {
         // Enable mouse tracking sequences
-        Out.Write("\x1b[?1000h\x1b[?1003h\x1b[?1006h");
+        Out.Write(Escapes.EnableMouseInput);
         Out.Flush();
         return new MouseInputHandler(this);
     }
@@ -48,7 +48,7 @@ public unsafe class LinuxInputAdapter : ITerminalInputAdapter
     public void DisableMouseInput()
     {
         // Disable mouse tracking sequences
-        Out.Write("\x1b[?1000l\x1b[?1003l\x1b[?1006l");
+        Out.Write(Escapes.DisableMouseInput);
         Out.Flush();
     }
 
