@@ -10,7 +10,7 @@ using static Windows.Win32.PInvoke;
 
 namespace Xobex.Console.Windows;
 
-internal class WindowsInputAdapter : ITerminalInputAdapter
+public class WindowsInputAdapter : ITerminalInputAdapter
 {
     private readonly SafeFileHandle _handle;
     private readonly CONSOLE_MODE _prevMode;

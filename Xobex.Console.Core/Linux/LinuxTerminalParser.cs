@@ -12,7 +12,7 @@ using Mod = System.ConsoleModifiers;
 namespace Xobex.Console.Linux;
 
 #pragma warning disable format
-public class LinuxTerminalParser: ITerminalParser
+internal class LinuxTerminalParser: ITerminalParser
 {
     private static readonly Dictionary<char, (ConsoleKey Key, ConsoleModifiers Mod)> _charToConsoleKey = new()
     {
