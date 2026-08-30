@@ -21,7 +21,7 @@ public class WindowsInputAdapter : ITerminalInputAdapter
         GetConsoleMode(handleIn, out var prevMode);
         _prevMode = prevMode;
         var newMode = prevMode;
-        newMode &= ~CONSOLE_MODE.ENABLE_ECHO_INPUT;
+        newMode &= ~(CONSOLE_MODE.ENABLE_ECHO_INPUT | CONSOLE_MODE.ENABLE_PROCESSED_INPUT);
         SetConsoleMode(handleIn, newMode);
     }
 

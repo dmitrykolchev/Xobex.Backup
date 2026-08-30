@@ -162,7 +162,27 @@ public abstract class TerminalOutputAdapter : ITerminalOutputAdapter
         Write(Escapes.MoveCursorLeft(cols));
     }
 
-    public void AlternateScreen(bool on)
+    private class AlternateScreenSwitcher: IDisposable
+    {
+        public AlternateScreenSwitcher(TerminalOutputAdapter conOut)
+        {
+            ConOut = conOut;
+        }
+        private TerminalOutputAdapter ConOut { get; }
+
+        public void Dispose()
+        {
+            ConOut.AlternateScreen(false);
+        }
+    }
+
+    public IDisposable AlternateScreen()
+    {
+        AlternateScreen(true);
+        return new AlternateScreenSwitcher(this);
+    }
+
+    private void AlternateScreen(bool on)
     {
         if (on)
         {
@@ -172,6 +192,7 @@ public abstract class TerminalOutputAdapter : ITerminalOutputAdapter
         {
             Write(Escapes.AlternateScreenOff);
         }
+        Flush();
     }
 
     public void SetTextStyle(TextStyle style)

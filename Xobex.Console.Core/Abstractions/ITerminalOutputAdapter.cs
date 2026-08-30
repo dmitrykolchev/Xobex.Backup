@@ -57,7 +57,7 @@ public interface ITerminalOutputAdapter : IDisposable
 
     void MoveCursorLeft(int cols);
 
-    void AlternateScreen(bool on);
+    IDisposable AlternateScreen();
 
     void SetTextStyle(TextStyle style);
 }
