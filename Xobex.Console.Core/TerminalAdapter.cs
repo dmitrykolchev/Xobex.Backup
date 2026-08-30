@@ -3,9 +3,6 @@
 // See LICENSE in the project root for license information
 // </copyright>
 
-using System;
-using System.Collections.Generic;
-using System.Text;
 using Xobex.Console.Abstractions;
 using Xobex.Console.Linux;
 using Xobex.Console.Windows;
@@ -21,6 +18,7 @@ public class TerminalAdapter : IDisposable
     }
 
     public ITerminalInputAdapter In { get; }
+
     public ITerminalOutputAdapter Out { get; }
 
     public static TerminalAdapter Create()
